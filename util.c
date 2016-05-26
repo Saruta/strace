@@ -512,21 +512,72 @@ getfdproto(struct tcb *tcp, int fd)
 #endif
 }
 
+static unsigned long
+getfdinode(struct tcb *tcp, int fd)
+{
+	char path[PATH_MAX + 1];
+	if (getfdpath(tcp, fd, path, sizeof(path)) >= 0) {
+		static const char socket_prefix[] = "socket:[";
+		const size_t socket_prefix_len = sizeof(socket_prefix) - 1;
+		const size_t path_len = strlen(path);
+
+		if (strncmp(path, socket_prefix, socket_prefix_len) == 0 &&
+		    path[path_len - 1] == ']') {
+			unsigned long inode =
+				strtoul(path + socket_prefix_len, NULL, 10);
+			return inode;
+		}
+	}
+	return -1;
+}
+
+int
+getfdnlproto(struct tcb *tcp, int fd, const struct xlat *xprotocols)
+{
+	unsigned long inode = getfdinode(tcp, fd);
+
+	if (!inode)
+		return -1;
+
+	char *nl_proto = NULL;
+	static const char socket_prefix[] = "NETLINK:[";
+	const size_t socket_prefix_len = sizeof(socket_prefix) -1;
+
+	nl_proto = get_sockaddr_by_inode_cached(inode);
+	if (!nl_proto) {
+		enum sock_proto proto = getfdproto(tcp, fd);
+		nl_proto = get_sockaddr_by_inode(inode, proto);
+		if (!nl_proto)
+			return -1;
+	}
+
+	if (strncmp(nl_proto, socket_prefix, socket_prefix_len) == 0) {
+		static const char define_prefix[] = "NETLINK_";
+		const size_t define_prefix_len = sizeof(define_prefix) -1;
+		nl_proto += socket_prefix_len;
+
+		for (;xprotocols->str != NULL; xprotocols++) {
+			const char *suffix = xprotocols->str + define_prefix_len;
+			size_t suffix_len =
+				strlen(xprotocols->str + define_prefix_len);
+			if (strncmp(nl_proto, suffix, suffix_len) == 0)
+				return xprotocols->val;
+		}
+	}
+
+	return -1;
+}
+
 void
 printfd(struct tcb *tcp, int fd)
 {
 	char path[PATH_MAX + 1];
 	if (show_fd_path && getfdpath(tcp, fd, path, sizeof(path)) >= 0) {
-		static const char socket_prefix[] = "socket:[";
-		const size_t socket_prefix_len = sizeof(socket_prefix) - 1;
 		const size_t path_len = strlen(path);
 
 		tprintf("%d<", fd);
-		if (show_fd_path > 1 &&
-		    strncmp(path, socket_prefix, socket_prefix_len) == 0 &&
-		    path[path_len - 1] == ']') {
-			unsigned long inode =
-				strtoul(path + socket_prefix_len, NULL, 10);
+		if (show_fd_path > 1) {
+				unsigned long inode = getfdinode(tcp, fd);
 
 			if (!print_sockaddr_by_inode_cached(inode)) {
 				const enum sock_proto proto =
