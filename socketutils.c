@@ -78,6 +78,16 @@ print_sockaddr_by_inode_cached(const unsigned long inode)
 	return false;
 }
 
+char *
+get_sockaddr_by_inode_cached(const unsigned long inode)
+{
+	const cache_entry *const e = &cache[inode & CACHE_MASK];
+	if (e && inode == e->inode) {
+		return e->details;
+	}
+	return NULL;
+}
+
 static bool
 send_query(const int fd, void *req, size_t req_size)
 {
@@ -230,15 +240,6 @@ receive_responses(const int fd, const unsigned long inode,
 		}
 		flags = MSG_DONTWAIT;
 	}
-}
-
-static bool
-inet_print(const int fd, const int family, const int protocol,
-	   const unsigned long inode, const char *proto_name)
-{
-	return inet_send_query(fd, family, protocol)
-		&& receive_responses(fd, inode, proto_name, inet_parse_response)
-		&& print_sockaddr_by_inode_cached(inode);
 }
 
 static bool
@@ -399,58 +400,102 @@ netlink_parse_response(const char *proto_name, const void *data,
 	return cache_inode_details(inode, details);
 }
 
-static bool
-unix_print(const int fd, const unsigned long inode)
+static char *
+netlink_get(const int fd, const unsigned long inode)
 {
-	return unix_send_query(fd, inode)
-		&& receive_responses(fd, inode, "UNIX", unix_parse_response)
-		&& print_sockaddr_by_inode_cached(inode);
+	if (netlink_send_query(fd, inode)
+	    && receive_responses(fd, inode, "NETLINK", netlink_parse_response))
+		return get_sockaddr_by_inode_cached(inode);
+
+	return NULL;
 }
 
-static bool
-tcp_v4_print(const int fd, const unsigned long inode)
+static char *
+inet_get(const int fd, const int family, const int protocol,
+	 const unsigned long inode, const char *proto_name)
 {
-	return inet_print(fd, AF_INET, IPPROTO_TCP, inode, "TCP");
+	if (inet_send_query(fd, family, protocol)
+	    && receive_responses(fd, inode, proto_name, inet_parse_response))
+		return get_sockaddr_by_inode_cached(inode);
+
+	return NULL;
 }
 
-static bool
-udp_v4_print(const int fd, const unsigned long inode)
+static char *
+unix_get(const int fd, const unsigned long inode)
 {
-	return inet_print(fd, AF_INET, IPPROTO_UDP, inode, "UDP");
+	if (unix_send_query(fd, inode)
+	    && receive_responses(fd, inode, "UNIX", unix_parse_response))
+		return get_sockaddr_by_inode_cached(inode);
+
+	return NULL;
 }
 
-static bool
-tcp_v6_print(const int fd, const unsigned long inode)
+static char *
+tcp_v4_get(const int fd, const unsigned long inode)
 {
-	return inet_print(fd, AF_INET6, IPPROTO_TCP, inode, "TCPv6");
+	return inet_get(fd, AF_INET, IPPROTO_TCP, inode, "TCP");
 }
 
-static bool
-udp_v6_print(const int fd, const unsigned long inode)
+static char *
+udp_v4_get(const int fd, const unsigned long inode)
 {
-	return inet_print(fd, AF_INET6, IPPROTO_UDP, inode, "UDPv6");
+	return inet_get(fd, AF_INET, IPPROTO_UDP, inode, "UDP");
 }
 
-static bool
-netlink_print(const int fd, const unsigned long inode)
+static char *
+tcp_v6_get(const int fd, const unsigned long inode)
 {
-	return netlink_send_query(fd, inode)
-		&& receive_responses(fd, inode, "NETLINK",
-				     netlink_parse_response)
-		&& print_sockaddr_by_inode_cached(inode);
+	return inet_get(fd, AF_INET6, IPPROTO_TCP, inode, "TCPv6");
+}
+
+static char *
+udp_v6_get(const int fd, const unsigned long inode)
+{
+	return inet_get(fd, AF_INET6, IPPROTO_UDP, inode, "UDPv6");
 }
 
 static const struct {
 	const char *const name;
-	bool (*const print)(int, unsigned long);
+	char * (*const get)(int, unsigned long);
 } protocols[] = {
-	[SOCK_PROTO_UNIX] = { "UNIX", unix_print },
-	[SOCK_PROTO_TCP] = { "TCP", tcp_v4_print },
-	[SOCK_PROTO_UDP] = { "UDP", udp_v4_print },
-	[SOCK_PROTO_TCPv6] = { "TCPv6", tcp_v6_print },
-	[SOCK_PROTO_UDPv6] = { "UDPv6", udp_v6_print },
-	[SOCK_PROTO_NETLINK] = { "NETLINK", netlink_print }
+	[SOCK_PROTO_UNIX] = { "UNIX", unix_get },
+	[SOCK_PROTO_TCP] = { "TCP", tcp_v4_get },
+	[SOCK_PROTO_UDP] = { "UDP", udp_v4_get },
+	[SOCK_PROTO_TCPv6] = { "TCPv6", tcp_v6_get },
+	[SOCK_PROTO_UDPv6] = { "UDPv6", udp_v6_get },
+	[SOCK_PROTO_NETLINK] = { "NETLINK", netlink_get }
 };
+
+char *
+get_sockaddr_by_inode(const unsigned long inode, const enum sock_proto proto)
+{
+	if ((unsigned int) proto >= ARRAY_SIZE(protocols) ||
+	    (proto != SOCK_PROTO_UNKNOWN && !protocols[proto].get))
+		return NULL;
+
+	const int fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_SOCK_DIAG);
+	if (fd < 0)
+		return NULL;
+	char *details;
+
+	if (proto != SOCK_PROTO_UNKNOWN) {
+		details = protocols[proto].get(fd, inode);
+	} else {
+		unsigned int i;
+		for (i = (unsigned int) SOCK_PROTO_UNKNOWN + 1;
+		     i < ARRAY_SIZE(protocols); ++i) {
+			if (!protocols[i].get)
+				continue;
+			details = protocols[i].get(fd, inode);
+			if (details)
+				break;
+		}
+	}
+
+	close(fd);
+	return details;
+}
 
 enum sock_proto
 get_proto_by_name(const char *const name)
@@ -470,33 +515,17 @@ get_proto_by_name(const char *const name)
 bool
 print_sockaddr_by_inode(const unsigned long inode, const enum sock_proto proto)
 {
-	if ((unsigned int) proto >= ARRAY_SIZE(protocols) ||
-	    (proto != SOCK_PROTO_UNKNOWN && !protocols[proto].print))
-		return false;
+	char *details = get_sockaddr_by_inode(inode, proto);
 
-	const int fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_SOCK_DIAG);
-	if (fd < 0)
-		return false;
-	bool r = false;
-
-	if (proto != SOCK_PROTO_UNKNOWN) {
-		r = protocols[proto].print(fd, inode);
-		if (!r) {
-			tprintf("%s:[%lu]", protocols[proto].name, inode);
-			r = true;
-		}
+	if (details) {
+		tprints(details);
 	} else {
-		unsigned int i;
-		for (i = (unsigned int) SOCK_PROTO_UNKNOWN + 1;
-		     i < ARRAY_SIZE(protocols); ++i) {
-			if (!protocols[i].print)
-				continue;
-			r = protocols[i].print(fd, inode);
-			if (r)
-				break;
-		}
+		if ((unsigned int) proto >= ARRAY_SIZE(protocols) ||
+		    (proto != SOCK_PROTO_UNKNOWN && !protocols[proto].get))
+			return false;
+		else
+			tprintf("%s:[%lu]", protocols[proto].name, inode);
 	}
 
-	close(fd);
-	return r;
+	return true;
 }
