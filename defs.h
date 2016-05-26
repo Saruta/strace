@@ -569,6 +569,7 @@ extern void pathtrace_select(const char *);
 extern int pathtrace_match(struct tcb *);
 extern int getfdpath(struct tcb *, int, char *, unsigned);
 extern enum sock_proto getfdproto(struct tcb *, int);
+extern int getfdnlproto(struct tcb *, int, const struct xlat *);
 
 extern const char *xlookup(const struct xlat *, const uint64_t);
 extern const char *xlat_search(const struct xlat *, const size_t, const uint64_t);
