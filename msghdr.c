@@ -352,7 +352,7 @@ print_struct_msghdr(struct tcb *tcp, const struct msghdr *msg,
 	tprints(", msg_iov=");
 
 	tprint_iov_upto(tcp, (unsigned long) msg->msg_iovlen,
-			(unsigned long) msg->msg_iov, decode, data_size);
+			(unsigned long) msg->msg_iov, decode, data_size, NULL);
 	tprintf(", msg_iovlen=%lu", (unsigned long) msg->msg_iovlen);
 
 	decode_msg_control(tcp, (unsigned long) msg->msg_control,

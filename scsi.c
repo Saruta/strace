@@ -85,8 +85,7 @@ print_sg_io_v3_req(struct tcb *tcp, const long arg)
 		if (sg_io.iovec_count)
 			tprint_iov_upto(tcp, sg_io.iovec_count,
 					(unsigned long) sg_io.dxferp,
-					IOV_DECODE_STR,
-					sg_io.dxfer_len);
+					IOV_DECODE_STR, sg_io.dxfer_len, NULL);
 		else
 			print_sg_io_buffer(tcp, (unsigned long) sg_io.dxferp,
 					   sg_io.dxfer_len);
@@ -114,8 +113,7 @@ print_sg_io_v3_res(struct tcb *tcp, const long arg)
 		if (sg_io.iovec_count)
 			tprint_iov_upto(tcp, sg_io.iovec_count,
 					(unsigned long) sg_io.dxferp,
-					IOV_DECODE_STR,
-					din_len);
+					IOV_DECODE_STR, din_len, NULL);
 		else
 			print_sg_io_buffer(tcp, (unsigned long) sg_io.dxferp,
 					   din_len);
@@ -165,7 +163,7 @@ print_sg_io_v4_req(struct tcb *tcp, const long arg)
 	tprintf(", dout[%u]=", sg_io.dout_xfer_len);
 	if (sg_io.dout_iovec_count)
 		tprint_iov_upto(tcp, sg_io.dout_iovec_count, sg_io.dout_xferp,
-				IOV_DECODE_STR, sg_io.dout_xfer_len);
+				IOV_DECODE_STR, sg_io.dout_xfer_len, NULL);
 	else
 		print_sg_io_buffer(tcp, sg_io.dout_xferp, sg_io.dout_xfer_len);
 	return 1;
@@ -190,7 +188,7 @@ print_sg_io_v4_res(struct tcb *tcp, const long arg)
 	tprintf(", din[%u]=", din_len);
 	if (sg_io.din_iovec_count)
 		tprint_iov_upto(tcp, sg_io.din_iovec_count, sg_io.din_xferp,
-				IOV_DECODE_STR, din_len);
+				IOV_DECODE_STR, din_len, NULL);
 	else
 		print_sg_io_buffer(tcp, sg_io.din_xferp, din_len);
 	tprintf(", driver_status=%u", sg_io.driver_status);
