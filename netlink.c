@@ -36,6 +36,8 @@
 #include <linux/selinux_netlink.h>
 #include <linux/netfilter/nfnetlink.h>
 #include "xlat/netlink_flags.h"
+#include "xlat/netlink_get_flags.h"
+#include "xlat/netlink_new_flags.h"
 #include "xlat/netlink_types.h"
 #include "xlat/netlink_protocols.h"
 #include "xlat/netlink_route_types.h"
@@ -103,6 +105,33 @@ decode_netlink_type(int type, int proto) {
 }
 
 static void
+decode_netlink_flags(int type, int proto, unsigned flags)
+{
+	const char *type_s = NULL;
+	if (type < NLMSG_MIN_TYPE) {
+		printflags(netlink_flags, flags, "NLM_F_???");
+		return;
+	}
+
+	if (proto == NETLINK_ROUTE)
+		type_s = xlookup(netlink_route_types, type);
+	else if (proto == NETLINK_XFRM)
+		type_s = xlookup(netlink_xfrm_types, type);
+
+	if (type_s == NULL) {
+		printflags(netlink_flags, flags, "NLM_F_???");
+		return;
+	}
+
+	if (strstr(type_s, "GET"))
+		printflags(netlink_get_flags, flags, "NLM_F_???");
+	else if (strstr(type_s, "NEW"))
+		printflags(netlink_new_flags, flags, "NLM_F_???");
+	else
+		printflags(netlink_flags, flags, "NLM_F_???");
+}
+
+static void
 print_nlmsghdr(struct tcb *tcp, const struct nlmsghdr *const nlmsghdr, int proto)
 {
 	/* print the whole structure regardless of its nlmsg_len */
@@ -112,7 +141,7 @@ print_nlmsghdr(struct tcb *tcp, const struct nlmsghdr *const nlmsghdr, int proto
 	decode_netlink_type(nlmsghdr->nlmsg_type, proto);
 
 	tprints(", flags=");
-	printflags(netlink_flags, nlmsghdr->nlmsg_flags, "NLM_F_???");
+	decode_netlink_flags(nlmsghdr->nlmsg_type, proto, nlmsghdr->nlmsg_flags);
 
 	tprintf(", seq=%u, pid=%u}", nlmsghdr->nlmsg_seq,
 		nlmsghdr->nlmsg_pid);
