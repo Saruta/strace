@@ -29,8 +29,21 @@
 #include "defs.h"
 #include <sys/socket.h>
 #include <linux/netlink.h>
+#include <linux/sock_diag.h>
+#include <linux/rtnetlink.h>
+#include <linux/xfrm.h>
+#include <linux/audit.h>
+#include <linux/selinux_netlink.h>
+#include <linux/netfilter/nfnetlink.h>
 #include "xlat/netlink_flags.h"
 #include "xlat/netlink_types.h"
+#include "xlat/netlink_protocols.h"
+#include "xlat/netlink_route_types.h"
+#include "xlat/netlink_sock_diag_types.h"
+#include "xlat/netlink_xfrm_types.h"
+#include "xlat/netlink_selinux_types.h"
+#include "xlat/netlink_audit_types.h"
+#include "xlat/netlink_netfilter_ids.h"
 
 /*
  * Fetch a struct nlmsghdr from the given address.
@@ -56,13 +69,47 @@ nlmsg_data(unsigned long nlh) {
 }
 
 static void
-print_nlmsghdr(struct tcb *tcp, const struct nlmsghdr *const nlmsghdr)
+decode_netlink_type(int type, int proto) {
+	if (type < NLMSG_MIN_TYPE) {
+		printxval(netlink_types, type, "NLMSG_???");
+		return;
+	}
+
+	switch (proto) {
+	case NETLINK_ROUTE:
+		printxval(netlink_route_types, type, "RTM_???");
+		break;
+	case NETLINK_SOCK_DIAG:
+		printxval(netlink_sock_diag_types, type, "SOCK_DIAG_???");
+		break;
+	case NETLINK_XFRM:
+		printxval(netlink_xfrm_types, type, "XFRM_MSG_???");
+		break;
+	case NETLINK_AUDIT:
+		printxval(netlink_audit_types, type, "AUDIT_???");
+		break;
+	case NETLINK_SELINUX:
+		printxval(netlink_selinux_types, type, "SELNL_???");
+		break;
+	case NETLINK_NETFILTER:
+		tprints("{");
+		printxval(netlink_netfilter_ids, NFNL_SUBSYS_ID(type),
+			  "NFNL_SUBSYS_???");
+		tprintf(", %d}", NFNL_MSG_TYPE(type));
+		break;
+	default:
+		tprints("???");
+	}
+}
+
+static void
+print_nlmsghdr(struct tcb *tcp, const struct nlmsghdr *const nlmsghdr, int proto)
 {
 	/* print the whole structure regardless of its nlmsg_len */
 
 	tprintf("{len=%u, type=", nlmsghdr->nlmsg_len);
 
-	printxval(netlink_types, nlmsghdr->nlmsg_type, "NLMSG_???");
+	decode_netlink_type(nlmsghdr->nlmsg_type, proto);
 
 	tprints(", flags=");
 	printflags(netlink_flags, nlmsghdr->nlmsg_flags, "NLM_F_???");
@@ -72,7 +119,8 @@ print_nlmsghdr(struct tcb *tcp, const struct nlmsghdr *const nlmsghdr)
 }
 
 static void
-decode_netlink_error(struct tcb *tcp, unsigned long addr, unsigned long size)
+decode_netlink_error(struct tcb *tcp, unsigned long addr, unsigned long size,
+		     int proto)
 {
 	struct nlmsgerr err;
 
@@ -81,18 +129,20 @@ decode_netlink_error(struct tcb *tcp, unsigned long addr, unsigned long size)
 
 	tprintf(", {error=\"%s\", msg=", strerror(-err.error));
 
-	print_nlmsghdr(tcp, &err.msg);
+	print_nlmsghdr(tcp, &err.msg, proto);
 }
 
 static int
-decode_nlmsghdr_with_payload(struct tcb *tcp,
+decode_nlmsghdr_with_payload(struct tcb *tcp, int fd,
 			     const struct nlmsghdr *const nlmsghdr,
 			     const unsigned long addr,
 			     const unsigned long len)
 {
-	tprints("{");
+	int proto;
 
-	print_nlmsghdr(tcp, nlmsghdr);
+	tprints("{");
+	proto = getfdnlproto(tcp, fd, netlink_protocols);
+	print_nlmsghdr(tcp, nlmsghdr, proto);
 
 	unsigned long nlmsg_len =
 		nlmsghdr->nlmsg_len > len ? len : nlmsghdr->nlmsg_len;
@@ -103,7 +153,8 @@ decode_nlmsghdr_with_payload(struct tcb *tcp,
 		{
 		case NLMSG_ERROR:
 			decode_netlink_error(tcp, data,
-					     nlmsghdr->nlmsg_len - sizeof(nlmsghdr));
+					     nlmsghdr->nlmsg_len - sizeof(nlmsghdr),
+					     proto);
 		case NLMSG_DONE:
 			tprints("}");
 			return 0;
@@ -120,7 +171,7 @@ decode_nlmsghdr_with_payload(struct tcb *tcp,
 }
 
 void
-decode_netlink(struct tcb *tcp, unsigned long addr, unsigned long len)
+decode_netlink(struct tcb *tcp, int fd, unsigned long addr, unsigned long len)
 {
 	struct nlmsghdr nlmsghdr;
 	bool print_array = false;
@@ -147,7 +198,7 @@ decode_netlink(struct tcb *tcp, unsigned long addr, unsigned long len)
 			print_array = true;
 		}
 
-		if (!decode_nlmsghdr_with_payload(tcp, &nlmsghdr, addr, len))
+		if (!decode_nlmsghdr_with_payload(tcp, fd, &nlmsghdr, addr, len))
 			break;
 
 		if (!next_addr)

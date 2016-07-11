@@ -114,7 +114,7 @@ decode_sockbuf(struct tcb *tcp, int fd, long addr, long addrlen)
 
 	switch (verbose(tcp) ? getfdproto(tcp, fd) : SOCK_PROTO_UNKNOWN) {
 	case SOCK_PROTO_NETLINK:
-		decode_netlink(tcp, addr, addrlen);
+		decode_netlink(tcp, fd, addr, addrlen);
 		break;
 	default:
 		printstr(tcp, addr, addrlen);
