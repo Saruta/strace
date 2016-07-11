@@ -23,6 +23,22 @@ struct netlink_diag_msg {
 	uint32_t ndiag_cookie[2];
 };
 
+enum {
+	NETLINK_DIAG_MEMINFO,
+	NETLINK_DIAG_GROUPS,
+	NETLINK_DIAG_RX_RING,
+	NETLINK_DIAG_TX_RING,
+
+	__NETLINK_DIAG_MAX
+};
+
+struct netlink_diag_ring {
+	uint32_t ndr_block_size;
+	uint32_t ndr_block_nr;
+	uint32_t ndr_frame_size;
+	uint32_t ndr_frame_nr;
+};
+
 #define NDIAG_SHOW_MEMINFO           0x00000001
 #define NDIAG_PROTO_ALL              ((uint8_t) ~0)
 

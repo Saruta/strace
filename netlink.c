@@ -183,20 +183,43 @@ decode_nlmsghdr_with_payload(struct tcb *tcp, int fd,
 	if (nlmsg_len > sizeof(struct nlmsghdr)) {
 		unsigned long data = nlmsg_data(addr);
 
-		switch (nlmsghdr->nlmsg_type)
-		{
-		case NLMSG_ERROR:
-			decode_netlink_error(tcp, data,
-					     nlmsghdr->nlmsg_len - sizeof(nlmsghdr),
-					     proto);
-		case NLMSG_DONE:
-			tprints("}");
-			return 0;
-		}
-		tprints(", ");
+		if (nlmsghdr->nlmsg_type < NLMSG_MIN_TYPE) {
+			switch (nlmsghdr->nlmsg_type)
+			{
+			case NLMSG_ERROR:
+				decode_netlink_error(tcp, data,
+						     nlmsghdr->nlmsg_len -
+						     sizeof(nlmsghdr),
+						     proto);
+			case NLMSG_DONE:
+				tprints("}");
+				return 0;
+			default:
+				tprints(", ");
 
-		printstr(tcp, addr + sizeof(struct nlmsghdr),
-			 nlmsg_len - sizeof(struct nlmsghdr));
+				printstr(tcp, addr + sizeof(struct nlmsghdr),
+					 nlmsg_len - sizeof(struct nlmsghdr));
+				tprints("}");
+				return 1;
+			}
+		}
+
+		switch (proto)
+		{
+		case NETLINK_SOCK_DIAG:
+			decode_netlink_sock_diag(tcp, data,
+						 nlmsghdr->nlmsg_len -
+						 sizeof(struct nlmsghdr),
+						 nlmsghdr->nlmsg_type,
+						 nlmsghdr->nlmsg_flags &
+						 NLM_F_REQUEST);
+			break;
+		default:
+			tprints(", ");
+
+			printstr(tcp, addr + sizeof(struct nlmsghdr),
+				 nlmsg_len - sizeof(struct nlmsghdr));
+		}
 	}
 
 	tprints("}");
