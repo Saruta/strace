@@ -20,5 +20,23 @@ struct unix_diag_msg {
 	uint32_t udiag_cookie[2];
 };
 
-#define UNIX_DIAG_NAME 0
-#define UNIX_DIAG_PEER 2
+enum {
+	UNIX_DIAG_NAME,
+	UNIX_DIAG_VFS,
+	UNIX_DIAG_PEER,
+	UNIX_DIAG_ICONS,
+	UNIX_DIAG_RQLEN,
+	UNIX_DIAG_MEMINFO,
+	UNIX_DIAG_SHUTDOWN,
+	__UNIX_DIAG_MAX,
+};
+
+struct unix_diag_vfs {
+	uint32_t udiag_vfs_ino;
+	uint32_t udiag_vfs_dev;
+};
+
+struct unix_diag_rqlen {
+	uint32_t udiag_rqueue;
+	uint32_t udiag_wqueue;
+};

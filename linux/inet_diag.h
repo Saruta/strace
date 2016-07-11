@@ -11,7 +11,17 @@ struct inet_diag_sockid {
 	uint32_t idiag_cookie[2];
 };
 
-/* Request structure */
+/* Request structures */
+struct inet_diag_req {
+	uint8_t idiag_family;
+	uint8_t idiag_src_len;
+	uint8_t idiag_dst_len;
+	uint8_t idiag_ext;
+	struct inet_diag_sockid id;
+	uint32_t idiag_states;
+	uint32_t idiag_dbs;
+};
+
 struct inet_diag_req_v2 {
 	uint8_t sdiag_family;
 	uint8_t sdiag_protocol;
