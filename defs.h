@@ -633,6 +633,7 @@ extern void tprint_iov_upto(struct tcb *, unsigned long, unsigned long,
 extern void decode_netlink(struct tcb *, int, unsigned long, unsigned long);
 extern void decode_netlink_sock_diag(struct tcb *, unsigned long, unsigned long,
 				     unsigned int, int);
+extern void decode_rtnetlink(struct tcb *, unsigned long, unsigned long, unsigned);
 extern void tprint_open_modes(unsigned int);
 extern const char *sprint_open_modes(unsigned int);
 extern void print_seccomp_filter(struct tcb *, unsigned long);

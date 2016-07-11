@@ -165,6 +165,7 @@ strace_SOURCES =	\
 	net.c		\
 	netlink.c       \
 	netlink_sock_diag.c \
+	netlink.h	\
 	numa.c		\
 	open.c		\
 	or1k_atomic.c	\
@@ -196,6 +197,7 @@ strace_SOURCES =	\
 	renameat.c	\
 	resource.c	\
 	rtc.c		\
+	rtnetlink.c	\
 	sched.c		\
 	scsi.c		\
 	seccomp.c	\

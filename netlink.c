@@ -214,6 +214,11 @@ decode_nlmsghdr_with_payload(struct tcb *tcp, int fd,
 						 nlmsghdr->nlmsg_flags &
 						 NLM_F_REQUEST);
 			break;
+		case NETLINK_ROUTE:
+			decode_rtnetlink(tcp, data, nlmsghdr->nlmsg_len -
+					 sizeof(struct nlmsghdr),
+					 nlmsghdr->nlmsg_type);
+			break;
 		default:
 			tprints(", ");
 
