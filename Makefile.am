@@ -161,6 +161,7 @@ strace_SOURCES =	\
 	native_defs.h	\
 	net.c		\
 	netlink.c       \
+	netlink.h	\
 	numa.c		\
 	open.c		\
 	or1k_atomic.c	\
@@ -192,6 +193,7 @@ strace_SOURCES =	\
 	renameat.c	\
 	resource.c	\
 	rtc.c		\
+	rtnetlink.c	\
 	sched.c		\
 	scsi.c		\
 	seccomp.c	\
