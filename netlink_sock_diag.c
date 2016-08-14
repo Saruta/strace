@@ -47,6 +47,11 @@
 #include "xlat/packet_diag_show.h"
 /* types */
 #include "xlat/netlink_types.h"
+/* attr */
+#include "xlat/netlink_attr_ndiag.h"
+#include "xlat/netlink_attr_idiag.h"
+#include "xlat/netlink_attr_udiag.h"
+#include "xlat/netlink_attr_pdiag.h"
 
 static void
 decode_inet_diag_sockid(struct tcb *tcp, int family,
@@ -159,6 +164,10 @@ decode_inet_diag_msg(struct tcb *tcp, unsigned long addr,
 		idiag_msg.idiag_expires, idiag_msg.idiag_rqueue,
 		idiag_msg.idiag_wqueue, idiag_msg.idiag_uid,
 		idiag_msg.idiag_inode);
+
+	decode_nlattr(tcp, addr + sizeof(struct inet_diag_msg),
+		      len - sizeof(struct inet_diag_msg), netlink_attr_idiag,
+		      "INET_DIAG_???");
 }
 
 static void
@@ -212,6 +221,9 @@ decode_netlink_diag_msg(struct tcb *tcp, unsigned long addr,
 	tprintf(", ndiag_ino=%u, ndiag_cookie={%u, %u}}", ndiag_msg.ndiag_ino,
 		ndiag_msg.ndiag_cookie[0], ndiag_msg.ndiag_cookie[1]);
 
+	decode_nlattr(tcp, addr + sizeof(struct netlink_diag_msg),
+		      len - sizeof(struct netlink_diag_msg), netlink_attr_ndiag,
+		      "NETLINK_DIAG_???");
 }
 
 static void
@@ -252,6 +264,10 @@ decode_packet_diag_msg(struct tcb *tcp, unsigned long addr,
 		", pdiag_cookie={%u, %u}}", pdiag_msg.pdiag_type,
 		pdiag_msg.pdiag_num, pdiag_msg.pdiag_ino,
 		pdiag_msg.pdiag_cookie[0], pdiag_msg.pdiag_cookie[1]);
+
+	decode_nlattr(tcp, addr + sizeof(struct packet_diag_msg),
+		      len - sizeof(struct packet_diag_msg), netlink_attr_pdiag,
+		      "PACKET_DIAG_???");
 }
 
 static void
@@ -292,6 +308,10 @@ decode_unix_diag_msg(struct tcb *tcp, unsigned long addr,
 	tprintf(", udiag_state=%u, udiag_ino=%u, udiag_cookie={%u, %u}}",
 		udiag_msg.udiag_state, udiag_msg.udiag_ino,
 		udiag_msg.udiag_cookie[0], udiag_msg.udiag_cookie[1]);
+
+	decode_nlattr(tcp, addr + sizeof(struct unix_diag_msg),
+		      len - sizeof(struct unix_diag_msg), netlink_attr_udiag,
+		      "UNIX_DIAG_???");
 }
 
 void

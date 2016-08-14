@@ -48,6 +48,63 @@
 #include "xlat/netlink_audit_types.h"
 #include "xlat/netlink_netfilter_ids.h"
 
+static bool
+fetch_nlattr(struct tcb *tcp, struct nlattr *nlattr,
+	     const unsigned long addr, const unsigned long len)
+{
+	if (len < sizeof(struct nlattr)) {
+		printstr(tcp, addr, len);
+		return false;
+	}
+
+	if (umove_or_printaddr(tcp, addr, nlattr))
+		return false;
+
+	return true;
+}
+
+/* XXX decode_nlattr_data () */
+
+void
+decode_nlattr(struct tcb *tcp, unsigned long addr, unsigned long len,
+	      struct xlat *table, const char *dftl)
+{
+	struct nlattr nlattr;
+
+	if (!len)
+		return;
+
+	while (fetch_nlattr(tcp, &nlattr, addr, len)) {
+		unsigned long nlattr_len = NLA_ALIGN(nlattr.nla_len);
+		unsigned long next_addr = 0, next_len = 0;
+
+		if (nlattr.nla_len >= sizeof(struct nlattr)) {
+			next_len = (len >= nlattr_len) ? len - nlattr_len : 0;
+
+			if (next_len && addr + nlattr_len > addr)
+				next_addr = addr + nlattr_len;
+		}
+
+		/* decode one nlattr*/
+		tprintf(", {{nla_len=%u, nla_type=", nlattr.nla_len);
+
+		printxval(table, nlattr.nla_type, dftl);
+
+		tprints("}, ");
+
+		printstr(tcp, addr + sizeof(struct nlattr),
+			 nlattr.nla_len - sizeof(struct nlattr));
+
+		tprints("}");
+
+		if (!next_addr)
+			break;
+
+		addr = next_addr;
+		len = next_len;
+	}
+}
+
 /*
  * Fetch a struct nlmsghdr from the given address.
  */
