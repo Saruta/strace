@@ -84,6 +84,8 @@ send_netlink_msg(const int fd)
 	struct {
 		struct nlmsghdr nlh;
 		struct netlink_diag_msg ndm;
+		struct nlattr nla;
+		char magic[4];
 	} msg = {
 		.nlh = {
 			.nlmsg_len = sizeof(msg),
@@ -93,7 +95,12 @@ send_netlink_msg(const int fd)
 		.ndm = {
 			.ndiag_family = AF_NETLINK,
 			.ndiag_protocol = NETLINK_ROUTE,
-		}
+		},
+		.nla = {
+			.nla_len = sizeof(msg.magic) + sizeof(msg.nla),
+			.nla_type = NETLINK_DIAG_GROUPS
+		},
+		.magic = "abcd"
 	};
 
 	if (sendto(fd, &msg, sizeof(msg), MSG_DONTWAIT, NULL, 0) !=
@@ -104,8 +111,10 @@ send_netlink_msg(const int fd)
 	       ", flags=NLM_F_DUMP, seq=0, pid=0}, {ndiag_family=AF_NETLINK"
 	       ", ndiag_type=0, ndiag_protocol=NETLINK_ROUTE, ndiag_state=0"
 	       ", ndiag_portid=0, ndiag_dst_portid=0, ndiag_dst_group=0"
-	       ", ndiag_ino=0, ndiag_cookie={0, 0}}}, %u, MSG_DONTWAIT"
+	       ", ndiag_ino=0, ndiag_cookie={0, 0}}, {{nla_len=%u"
+	       ", nla_type=NETLINK_DIAG_GROUPS}, \"abcd\"}}, %u, MSG_DONTWAIT"
 	       ", NULL, 0) = %u\n", fd, (unsigned) sizeof(msg),
+	       (unsigned) (sizeof(msg.magic) + sizeof(msg.nla)),
 	       (unsigned) sizeof(msg), (unsigned) sizeof(msg));
 }
 
@@ -147,6 +156,8 @@ send_unix_msg(const int fd)
 	struct {
 		struct nlmsghdr nlh;
 		struct unix_diag_msg udm;
+		struct nlattr nla;
+		char magic[4];
 	} msg = {
 		.nlh = {
 			.nlmsg_len = sizeof(msg),
@@ -155,7 +166,12 @@ send_unix_msg(const int fd)
 		},
 		.udm = {
 			.udiag_family = AF_UNIX,
-		}
+		},
+		.nla = {
+			.nla_len = sizeof(msg.magic) + sizeof(msg.nla),
+			.nla_type = UNIX_DIAG_NAME
+		},
+		.magic = "abcd"
 	};
 
 	if (sendto(fd, &msg, sizeof(msg), MSG_DONTWAIT, NULL, 0) !=
@@ -165,8 +181,10 @@ send_unix_msg(const int fd)
 	printf("sendto(%d, {{len=%u, type=SOCK_DIAG_BY_FAMILY"
 	       ", flags=NLM_F_DUMP, seq=0, pid=0}, {"
 	       "udiag_family=AF_UNIX, udiag_type=0, udiag_state=0"
-	       ", udiag_ino=0, udiag_cookie={0, 0}}}, %u, MSG_DONTWAIT"
+	       ", udiag_ino=0, udiag_cookie={0, 0}}, {{nla_len=%u"
+	       ", nla_type=UNIX_DIAG_NAME}, \"abcd\"}}, %u, MSG_DONTWAIT"
 	       ", NULL, 0) = %u\n", fd, (unsigned) sizeof(msg),
+	       (unsigned) (sizeof(msg.magic) + sizeof(msg.nla)),
 	       (unsigned) sizeof(msg), (unsigned) sizeof(msg));
 }
 
@@ -254,6 +272,8 @@ send_inet_msg(const int fd)
 	struct {
 		struct nlmsghdr nlh;
 		struct inet_diag_msg idm;
+		struct nlattr nla;
+		char magic[4];
 	} msg = {
 		.nlh = {
 			.nlmsg_len = sizeof(msg),
@@ -262,7 +282,12 @@ send_inet_msg(const int fd)
 		},
 		.idm = {
 			.idiag_family = AF_INET,
-		}
+		},
+		.nla = {
+			.nla_len = sizeof(msg.magic) + sizeof(msg.nla),
+			.nla_type = INET_DIAG_MEMINFO
+		},
+		.magic = "abcd"
 	};
 
 	if (!inet_pton(AF_INET, address, &msg.idm.id.idiag_src))
@@ -279,8 +304,10 @@ send_inet_msg(const int fd)
 	       ", idiag_state=0, idiag_timer=0, idiag_retrans=0, id={idiag_sport=0"
 	       ", idiag_dport=0, idiag_src=%s, idiag_dst=%s, idiag_if=0"
 	       ", idiag_cookie={0, 0}}, idiag_expires=0, idiag_rqueue=0"
-	       ", idiag_wqueue=0, idiag_uid=0, idiag_inode=0}}, %u, MSG_DONTWAIT"
+	       ", idiag_wqueue=0, idiag_uid=0, idiag_inode=0}, {{nla_len=%u"
+	       ", nla_type=INET_DIAG_MEMINFO}, \"abcd\"}}, %u, MSG_DONTWAIT"
 	       ", NULL, 0) = %u\n", fd, (unsigned) sizeof(msg), address, address,
+	       (unsigned) (sizeof(msg.magic) + sizeof(msg.nla)),
 	       (unsigned) sizeof(msg), (unsigned) sizeof(msg));
 }
 
@@ -322,6 +349,8 @@ send_packet_msg(const int fd)
 	struct {
 		struct nlmsghdr nlh;
 		struct packet_diag_msg udm;
+		struct nlattr nla;
+		char magic[4];
 	} msg = {
 		.nlh = {
 			.nlmsg_len = sizeof(msg),
@@ -330,7 +359,12 @@ send_packet_msg(const int fd)
 		},
 		.udm = {
 			.pdiag_family = AF_PACKET,
-		}
+		},
+		.nla = {
+			.nla_len = sizeof(msg.magic) + sizeof(msg.nla),
+			.nla_type = PACKET_DIAG_UID
+		},
+		.magic = "abcd"
 	};
 
 	if (sendto(fd, &msg, sizeof(msg), MSG_DONTWAIT, NULL, 0) !=
@@ -339,8 +373,10 @@ send_packet_msg(const int fd)
 
 	printf("sendto(%d, {{len=%u, type=SOCK_DIAG_BY_FAMILY, flags=NLM_F_DUMP"
 	       ", seq=0, pid=0}, {pdiag_family=AF_PACKET, pdiag_type=0"
-	       ", pdiag_num=0, pdiag_ino=0, pdiag_cookie={0, 0}}}, %u"
+	       ", pdiag_num=0, pdiag_ino=0, pdiag_cookie={0, 0}}, {{nla_len=%u"
+	       ", nla_type=PACKET_DIAG_UID}, \"abcd\"}}, %u"
 	       ", MSG_DONTWAIT, NULL, 0) = %u\n", fd, (unsigned) sizeof(msg),
+	       (unsigned) (sizeof(msg.magic) + sizeof(msg.nla)),
 	       (unsigned) sizeof(msg), (unsigned) sizeof(msg));
 }
 

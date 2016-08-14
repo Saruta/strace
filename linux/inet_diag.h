@@ -1,6 +1,27 @@
 #define TCPDIAG_GETSOCK 18
 #define DCCPDIAG_GETSOCK 19
 
+/* Extensions */
+
+enum {
+	INET_DIAG_NONE,
+	INET_DIAG_MEMINFO,
+	INET_DIAG_INFO,
+	INET_DIAG_VEGASINFO,
+	INET_DIAG_CONG,
+	INET_DIAG_TOS,
+	INET_DIAG_TCLASS,
+	INET_DIAG_SKMEMINFO,
+	INET_DIAG_SHUTDOWN,
+	INET_DIAG_DCTCPINFO,
+	INET_DIAG_PROTOCOL,  /* response attribute only */
+	INET_DIAG_SKV6ONLY,
+	INET_DIAG_LOCALS,
+	INET_DIAG_PEERS,
+	INET_DIAG_PAD,
+	__INET_DIAG_MAX,
+};
+
 /* Socket identity */
 struct inet_diag_sockid {
 	uint16_t idiag_sport;
