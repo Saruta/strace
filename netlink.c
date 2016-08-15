@@ -47,6 +47,7 @@
 #include "xlat/netlink_selinux_types.h"
 #include "xlat/netlink_audit_types.h"
 #include "xlat/netlink_netfilter_ids.h"
+#include "netlink.h"
 
 static bool
 fetch_nlattr(struct tcb *tcp, struct nlattr *nlattr,
@@ -73,6 +74,9 @@ decode_nlattr(struct tcb *tcp, unsigned long addr, unsigned long len,
 
 	if (len < sizeof(nlattr))
 		return len;
+
+	len -= NETLINK_ALIGN_UP(addr) - addr;
+	addr = NETLINK_ALIGN_UP(addr);
 
 	while (fetch_nlattr(tcp, &nlattr, addr, len)) {
 		unsigned long nlattr_len = NLA_ALIGN(nlattr.nla_len);
