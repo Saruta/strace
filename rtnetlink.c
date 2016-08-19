@@ -61,6 +61,34 @@
 #include "xlat/rtnetlink_mdb_attr.h"
 #include "xlat/rtnetlink_nsid_attr.h"
 
+#define MAX_PHYS_ITEM_ID_LEN 32
+
+static const struct nla_policy ifla_policy[] = {
+	[IFLA_IFNAME]		= { .type = NLA_STRING, .len = IFNAMSIZ-1 },
+	[IFLA_ADDRESS]		= { .type = NLA_BINARY, .len = MAX_ADDR_LEN },
+	[IFLA_BROADCAST]	= { .type = NLA_BINARY, .len = MAX_ADDR_LEN },
+	[IFLA_MTU]		= { .type = NLA_U32 },
+	[IFLA_LINK]		= { .type = NLA_U32 },
+	[IFLA_MASTER]		= { .type = NLA_U32 },
+	[IFLA_CARRIER]		= { .type = NLA_U8 },
+	[IFLA_TXQLEN]		= { .type = NLA_U32 },
+	[IFLA_WEIGHT]		= { .type = NLA_U32 },
+	[IFLA_OPERSTATE]	= { .type = NLA_U8 },
+	[IFLA_LINKMODE]		= { .type = NLA_U8 },
+	[IFLA_NET_NS_PID]	= { .type = NLA_U32 },
+	[IFLA_NET_NS_FD]	= { .type = NLA_U32 },
+	[IFLA_IFALIAS]	        = { .type = NLA_STRING, .len = IFALIASZ-1 },
+	[IFLA_EXT_MASK]		= { .type = NLA_U32 },
+	[IFLA_PROMISCUITY]	= { .type = NLA_U32 },
+	[IFLA_NUM_TX_QUEUES]	= { .type = NLA_U32 },
+	[IFLA_NUM_RX_QUEUES]	= { .type = NLA_U32 },
+	[IFLA_PHYS_PORT_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_ITEM_ID_LEN },
+	[IFLA_CARRIER_CHANGES]	= { .type = NLA_U32 },  /* ignored */
+	[IFLA_PHYS_SWITCH_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_ITEM_ID_LEN },
+	[IFLA_LINK_NETNSID]	= { .type = NLA_S32 },
+	[IFLA_PROTO_DOWN]	= { .type = NLA_U8 },
+};
+
 static void
 decode_rtnetlink_link(struct tcb *tcp, unsigned long *addr, unsigned long *len)
 {
@@ -88,6 +116,14 @@ decode_rtnetlink_link(struct tcb *tcp, unsigned long *addr, unsigned long *len)
 	tprintf(", ifi_change=%u}", ifinfo.ifi_change);
 }
 
+static const struct nla_policy ifa_policy[] = {
+	[IFA_LOCAL] = {.type = NLA_U32},
+	[IFA_ADDRESS] = {.type = NLA_U32},
+	[IFA_BROADCAST] = {.type = NLA_U32},
+	[IFA_LABEL] = {.type = NLA_STRING},
+	[IFA_FLAGS] = {.type = NLA_U32}
+};
+
 static void
 decode_rtnetlink_addr(struct tcb *tcp, unsigned long *addr, unsigned long *len)
 {
@@ -113,6 +149,14 @@ decode_rtnetlink_addr(struct tcb *tcp, unsigned long *addr, unsigned long *len)
 	tprintf(", ifa_scope=%u, ifa_index=%d}", ifaddr.ifa_scope,
 		ifaddr.ifa_index);
 }
+
+static const struct nla_policy rtm_policy[] = {
+	[RTA_IIF] = {.type = NLA_U32},
+	[RTA_OIF] = {.type = NLA_U32},
+	[RTA_PRIORITY] = {.type = NLA_U32},
+	[RTA_FLOW] = {.type = NLA_U32},
+	[RTA_ENCAP_TYPE] = {.type = NLA_U16},
+};
 
 static void
 decode_rtnetlink_rtmsg(struct tcb *tcp, unsigned long *addr, unsigned long *len)
@@ -149,6 +193,12 @@ decode_rtnetlink_rtmsg(struct tcb *tcp, unsigned long *addr, unsigned long *len)
 	tprints("}");
 }
 
+static const struct nla_policy rtnl_net_policy[] = {
+	[NETNSA_NSID] = {.type = NLA_S32},
+	[NETNSA_PID] = {.type = NLA_U32},
+	[NETNSA_FD] = {.type = NLA_U32}
+};
+
 static void
 decode_rtnetlink_rtgenmsg(struct tcb *tcp, unsigned long *addr, unsigned long *len)
 {
@@ -168,6 +218,12 @@ decode_rtnetlink_rtgenmsg(struct tcb *tcp, unsigned long *addr, unsigned long *l
 	printxval(addrfams, rtgenmsg.rtgen_family, "AF_???");
 	tprints("}");
 }
+
+static const struct nla_policy neigh_policy[] = {
+	[NDA_PROBES] = {.type = NLA_U32},
+	[NDA_IFINDEX] = {.type = NLA_U32},
+	[NDA_MASTER] = {.type = NLA_U32},
+};
 
 static void
 decode_rtnetlink_neigh(struct tcb *tcp, unsigned long *addr, unsigned long *len)
@@ -196,6 +252,14 @@ decode_rtnetlink_neigh(struct tcb *tcp, unsigned long *addr, unsigned long *len)
 	tprints("}");
 }
 
+static const struct nla_policy nl_neightbl_policy[] = {
+	[NDTA_NAME] = {.type = NLA_STRING},
+	[NDTA_THRESH1] = {.type = NLA_U32},
+	[NDTA_THRESH2] = {.type = NLA_U32},
+	[NDTA_THRESH3] = {.type = NLA_U32},
+	[NDTA_GC_INTERVAL] = {.type = NLA_U64},
+};
+
 static void
 decode_rtnetlink_neightbl(struct tcb *tcp, unsigned long *addr, unsigned long *len)
 {
@@ -216,6 +280,11 @@ decode_rtnetlink_neightbl(struct tcb *tcp, unsigned long *addr, unsigned long *l
 
 	tprints("}");
 }
+
+static const struct nla_policy tc_policy[] = {
+	[TCA_KIND] = {.type = NLA_STRING},
+	[TCA_FCNT] = {.type = NLA_U32},
+};
 
 static void
 decode_rtnetlink_tc(struct tcb *tcp, unsigned long *addr, unsigned long *len)
@@ -242,6 +311,11 @@ decode_rtnetlink_tc(struct tcb *tcp, unsigned long *addr, unsigned long *len)
 	tprints("}");
 }
 
+static const struct nla_policy nl_action_policy[] = {
+	[TCA_ACT_KIND] = {.type = NLA_STRING},
+	[TCA_ACT_INDEX] = {.type = NLA_U32}
+};
+
 static void
 decode_rtnetlink_action(struct tcb *tcp, unsigned long *addr, unsigned long *len)
 {
@@ -261,6 +335,10 @@ decode_rtnetlink_action(struct tcb *tcp, unsigned long *addr, unsigned long *len
 	printxval(addrfams, tca.tca_family, "AF_???");
 	tprints("}");
 }
+
+static const struct nla_policy addrlabel_policy[] = {
+	[IFAL_LABEL] = {.type = NLA_U32},
+};
 
 static void
 decode_rtnetlink_addrlbl(struct tcb *tcp, unsigned long *addr, unsigned long *len)
@@ -284,6 +362,15 @@ decode_rtnetlink_addrlbl(struct tcb *tcp, unsigned long *addr, unsigned long *le
 		ifal.ifal_index, ifal.ifal_seq);
 }
 
+static const struct nla_policy dcbnl_policy[] = {
+	[DCB_ATTR_IFNAME] = {.type = NLA_NUL_STRING, .len = IFNAMSIZ - 1},
+	[DCB_ATTR_STATE] = {.type = NLA_U8},
+	[DCB_ATTR_SET_ALL] = {.type = NLA_U8},
+	[DCB_ATTR_PERM_HWADDR] = {.type = NLA_FLAG},
+	[DCB_ATTR_PFC_STATE] = {.type = NLA_U8},
+	[DCB_ATTR_DCBX] = {.type = NLA_U8}
+};
+
 static void
 decode_rtnetlink_dcb(struct tcb *tcp, unsigned long *addr, unsigned long *len)
 {
@@ -306,6 +393,15 @@ decode_rtnetlink_dcb(struct tcb *tcp, unsigned long *addr, unsigned long *len)
 
 	tprints("}");
 }
+
+static const struct nla_policy ncm_policy[] = {
+	[NETCONFA_IFINDEX] = {.type = NLA_S32},
+	[NETCONFA_FORWARDING] = {.type = NLA_S32},
+	[NETCONFA_RP_FILTER] = {.type = NLA_S32},
+	[NETCONFA_MC_FORWARDING] = {.type = NLA_S32},
+	[NETCONFA_PROXY_NEIGH] = {.type = NLA_S32},
+	[NETCONFA_IGNORE_ROUTES_WITH_LINKDOWN] = {.type = NLA_S32}
+};
 
 static void
 decode_rtnetlink_ncm(struct tcb *tcp, unsigned long *addr, unsigned long *len)
@@ -359,7 +455,8 @@ decode_rtnetlink(struct tcb *tcp, unsigned long addr, unsigned long len,
 	case RTM_GETLINK:
 	case RTM_SETLINK:
 		decode_rtnetlink_link(tcp, &addr, &len);
-		len = decode_nlattr(tcp, addr, len, rtnetlink_link_attr, "IFLA_???");
+		len = decode_nlattr(tcp, addr, len, rtnetlink_link_attr,
+				    ifla_policy, "IFLA_???");
 		break;
 	case RTM_NEWADDR:
 	case RTM_DELADDR:
@@ -367,7 +464,8 @@ decode_rtnetlink(struct tcb *tcp, unsigned long addr, unsigned long len,
 	case RTM_GETMULTICAST:
 	case RTM_GETANYCAST:
 		decode_rtnetlink_addr(tcp, &addr, &len);
-		len = decode_nlattr(tcp, addr, len, rtnetlink_addr_attr, "IFA_???");
+		len = decode_nlattr(tcp, addr, len, rtnetlink_addr_attr,
+				    ifa_policy, "IFA_???");
 		break;
 	case RTM_NEWROUTE:
 	case RTM_DELROUTE:
@@ -376,19 +474,22 @@ decode_rtnetlink(struct tcb *tcp, unsigned long addr, unsigned long len,
 	case RTM_DELRULE:
 	case RTM_GETRULE:
 		decode_rtnetlink_rtmsg(tcp, &addr, &len);
-		len = decode_nlattr(tcp, addr, len, rtnetlink_route_attr, "RTA_???");
+		len = decode_nlattr(tcp, addr, len, rtnetlink_route_attr,
+				    rtm_policy, "RTA_???");
 		break;
 	case RTM_NEWNEIGH:
 	case RTM_DELNEIGH:
 	case RTM_GETNEIGH:
 		decode_rtnetlink_neigh(tcp, &addr, &len);
-		len = decode_nlattr(tcp, addr, len, rtnetlink_neigh_attr, "NDA_???");
+		len = decode_nlattr(tcp, addr, len, rtnetlink_neigh_attr,
+				    neigh_policy, "NDA_???");
 		break;
 	case RTM_NEWNEIGHTBL:
 	case RTM_GETNEIGHTBL:
 	case RTM_SETNEIGHTBL:
 		decode_rtnetlink_neightbl(tcp, &addr, &len);
-		len = decode_nlattr(tcp, addr, len, rtnetlink_neightbl_attr, "NDTA_???");
+		len = decode_nlattr(tcp, addr, len, rtnetlink_neightbl_attr,
+				    nl_neightbl_policy, "NDTA_???");
 		break;
 	case RTM_NEWQDISC:
 	case RTM_DELQDISC:
@@ -400,41 +501,48 @@ decode_rtnetlink(struct tcb *tcp, unsigned long addr, unsigned long len,
 	case RTM_DELTFILTER:
 	case RTM_GETTFILTER:
 		decode_rtnetlink_tc(tcp, &addr, &len);
-		len = decode_nlattr(tcp, addr, len, rtnetlink_tc_attr, "TCA_???");
+		len = decode_nlattr(tcp, addr, len, rtnetlink_tc_attr,
+				    tc_policy, "TCA_???");
 		break;
 	case RTM_NEWACTION:
 	case RTM_DELACTION:
 	case RTM_GETACTION:
 		decode_rtnetlink_action(tcp, &addr, &len);
-		len = decode_nlattr(tcp, addr, len, rtnetlink_action_attr, "TCA_ACT_???");
+		len = decode_nlattr(tcp, addr, len, rtnetlink_action_attr,
+				    nl_action_policy, "TCA_ACT_???");
 		break;
 	case RTM_NEWADDRLABEL:
 	case RTM_DELADDRLABEL:
 	case RTM_GETADDRLABEL:
 		decode_rtnetlink_addrlbl(tcp, &addr, &len);
-		len = decode_nlattr(tcp, addr, len, rtnetlink_addrlabel_attr, "IFAL_???");
+		len = decode_nlattr(tcp, addr, len, rtnetlink_addrlabel_attr,
+				    addrlabel_policy, "IFAL_???");
 		break;
 	case RTM_GETDCB:
 	case RTM_SETDCB:
 		decode_rtnetlink_dcb(tcp, &addr, &len);
-		len = decode_nlattr(tcp, addr, len, rtnetlink_dcb_attr, "DCB_ATTR_???");
+		len = decode_nlattr(tcp, addr, len, rtnetlink_dcb_attr,
+				    dcbnl_policy, "DCB_ATTR_???");
 		break;
 	case RTM_GETNETCONF:
 	case RTM_NEWNETCONF:
 		decode_rtnetlink_ncm(tcp, &addr, &len);
-		len = decode_nlattr(tcp, addr, len, rtnetlink_nc_attr, "NETCONFA_???");
+		len = decode_nlattr(tcp, addr, len, rtnetlink_nc_attr,
+				    ncm_policy, "NETCONFA_???");
 		break;
 	case RTM_NEWMDB:
 	case RTM_DELMDB:
 	case RTM_GETMDB:
 		decode_rtnetlink_mdb(tcp, &addr, &len);
-		len = decode_nlattr(tcp, addr, len, rtnetlink_mdb_attr, "MDBA_???");
+		len = decode_nlattr(tcp, addr, len, rtnetlink_mdb_attr, NULL,
+				    "MDBA_???");
 		break;
 	case RTM_NEWNSID:
 	case RTM_DELNSID:
 	case RTM_GETNSID:
 		decode_rtnetlink_rtgenmsg(tcp, &addr, &len);
-		len = decode_nlattr(tcp, addr, len, rtnetlink_nsid_attr, "NETNSA_???");
+		len = decode_nlattr(tcp, addr, len, rtnetlink_nsid_attr,
+				    rtnl_net_policy, "NETNSA_???");
 		break;
 	}
 

@@ -634,8 +634,31 @@ extern void decode_netlink(struct tcb *, int, unsigned long, unsigned long);
 extern void decode_netlink_sock_diag(struct tcb *, unsigned long, unsigned long,
 				     unsigned int, int);
 extern void decode_rtnetlink(struct tcb *, unsigned long, unsigned long, unsigned);
+enum {
+	NLA_UNSPEC,
+	NLA_U8,
+	NLA_U16,
+	NLA_U32,
+	NLA_U64,
+	NLA_STRING,
+	NLA_FLAG,
+	NLA_MSECS,
+	NLA_NESTED,
+	NLA_NESTED_COMPAT,
+	NLA_NUL_STRING,
+	NLA_BINARY,
+	NLA_S8,
+	NLA_S16,
+	NLA_S32,
+	NLA_S64
+};
+struct nla_policy {
+	unsigned short type;
+	unsigned short len;
+};
 extern unsigned long decode_nlattr(struct tcb *, unsigned long ,unsigned long,
-				   const struct xlat*, const char *);
+				   const struct xlat*, const struct nla_policy[],
+				   const char *);
 extern void tprint_open_modes(unsigned int);
 extern const char *sprint_open_modes(unsigned int);
 extern void print_seccomp_filter(struct tcb *, unsigned long);

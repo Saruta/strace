@@ -64,11 +64,95 @@ fetch_nlattr(struct tcb *tcp, struct nlattr *nlattr,
 	return true;
 }
 
-/* XXX decode_nlattr_data () */
+static void
+decode_nlattr_data(struct tcb *tcp, unsigned long addr, unsigned long len,
+		   unsigned nla_type, const struct nla_policy policy[])
+{
+	if (!policy) {
+		printstr(tcp, addr, len);
+		return;
+	}
+
+	switch (policy[nla_type].type) {
+	case NLA_STRING: case NLA_NUL_STRING:
+		if (policy[nla_type].len == 0 || len < policy[nla_type].len)
+			printstr(tcp, addr, len - 1);
+		else
+			printstr(tcp, addr, len);
+		break;
+	case NLA_U64: {
+		uint64_t n;
+		if (len >= 8 && umove(tcp, addr, &n))
+			printstr(tcp, addr, len);
+		else
+			tprintf("%lu", n);
+		break;
+	}
+	case NLA_U32: {
+		uint32_t n;
+		if (len >= 4 && umove(tcp, addr, &n))
+			printstr(tcp, addr, len);
+		else
+			tprintf("%u", n);
+		break;
+	}
+	case NLA_U16: {
+		uint16_t n;
+		if (len >= 2 && umove(tcp, addr, &n))
+			printstr(tcp, addr, len);
+		else
+			tprintf("%u", n);
+		break;
+	}
+	case NLA_U8: {
+		uint8_t n;
+		if (len >= 1 && umove(tcp, addr, &n))
+			printstr(tcp, addr, len);
+		else
+			tprintf("%u", n);
+		break;
+	}
+	case NLA_S64: {
+		int64_t n;
+		if (len >= 8 && umove(tcp, addr, &n))
+			printstr(tcp, addr, len);
+		else
+			tprintf("%ld", n);
+		break;
+	}
+	case NLA_S32: {
+		int32_t n;
+		if (len >= 4 && umove(tcp, addr, &n))
+			printstr(tcp, addr, len);
+		else
+			tprintf("%d", n);
+		break;
+	}
+	case NLA_S16: {
+		int16_t n;
+		if (len >= 2 && umove(tcp, addr, &n))
+			printstr(tcp, addr, len);
+		else
+			tprintf("%d", n);
+		break;
+	}
+	case NLA_S8: {
+		int8_t n;
+		if (len >= 1 && umove(tcp, addr, &n))
+			printstr(tcp, addr, len);
+		else
+			tprintf("%d", n);
+		break;
+	}
+	default:
+		printstr(tcp, addr, len);
+	}
+}
 
 unsigned long
 decode_nlattr(struct tcb *tcp, unsigned long addr, unsigned long len,
-	      const struct xlat *table, const char *dftl)
+	      const struct xlat *table, const struct nla_policy policy[],
+	      const char *dftl)
 {
 	struct nlattr nlattr;
 
@@ -96,13 +180,15 @@ decode_nlattr(struct tcb *tcp, unsigned long addr, unsigned long len,
 
 		tprints("}, ");
 
-		printstr(tcp, addr + sizeof(struct nlattr),
-			 nlattr.nla_len - sizeof(struct nlattr));
+		decode_nlattr_data(tcp, addr + sizeof(struct nlattr),
+				   nlattr.nla_len - sizeof(struct nlattr),
+				   nlattr.nla_type,
+				   policy);
 
 		tprints("}");
 
 		if (!next_addr)
-			break;
+			return next_len;
 
 		addr = next_addr;
 		len = next_len;

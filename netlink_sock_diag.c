@@ -167,7 +167,7 @@ decode_inet_diag_msg(struct tcb *tcp, unsigned long addr,
 
 	decode_nlattr(tcp, addr + sizeof(struct inet_diag_msg),
 		      len - sizeof(struct inet_diag_msg), netlink_attr_idiag,
-		      "INET_DIAG_???");
+		      NULL, "INET_DIAG_???");
 }
 
 static void
@@ -223,7 +223,7 @@ decode_netlink_diag_msg(struct tcb *tcp, unsigned long addr,
 
 	decode_nlattr(tcp, addr + sizeof(struct netlink_diag_msg),
 		      len - sizeof(struct netlink_diag_msg), netlink_attr_ndiag,
-		      "NETLINK_DIAG_???");
+		      NULL, "NETLINK_DIAG_???");
 }
 
 static void
@@ -267,7 +267,7 @@ decode_packet_diag_msg(struct tcb *tcp, unsigned long addr,
 
 	decode_nlattr(tcp, addr + sizeof(struct packet_diag_msg),
 		      len - sizeof(struct packet_diag_msg), netlink_attr_pdiag,
-		      "PACKET_DIAG_???");
+		      NULL, "PACKET_DIAG_???");
 }
 
 static void
@@ -311,7 +311,7 @@ decode_unix_diag_msg(struct tcb *tcp, unsigned long addr,
 
 	decode_nlattr(tcp, addr + sizeof(struct unix_diag_msg),
 		      len - sizeof(struct unix_diag_msg), netlink_attr_udiag,
-		      "UNIX_DIAG_???");
+		      NULL, "UNIX_DIAG_???");
 }
 
 void
