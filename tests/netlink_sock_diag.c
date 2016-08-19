@@ -362,7 +362,7 @@ send_packet_msg(const int fd)
 		},
 		.nla = {
 			.nla_len = sizeof(msg.magic) + sizeof(msg.nla),
-			.nla_type = PACKET_DIAG_UID
+			.nla_type = PACKET_DIAG_INFO
 		},
 		.magic = "abcd"
 	};
@@ -374,7 +374,7 @@ send_packet_msg(const int fd)
 	printf("sendto(%d, {{len=%u, type=SOCK_DIAG_BY_FAMILY, flags=NLM_F_DUMP"
 	       ", seq=0, pid=0}, {pdiag_family=AF_PACKET, pdiag_type=0"
 	       ", pdiag_num=0, pdiag_ino=0, pdiag_cookie={0, 0}}, {{nla_len=%u"
-	       ", nla_type=PACKET_DIAG_UID}, \"abcd\"}}, %u"
+	       ", nla_type=PACKET_DIAG_INFO}, \"abcd\"}}, %u"
 	       ", MSG_DONTWAIT, NULL, 0) = %u\n", fd, (unsigned) sizeof(msg),
 	       (unsigned) (sizeof(msg.magic) + sizeof(msg.nla)),
 	       (unsigned) sizeof(msg), (unsigned) sizeof(msg));

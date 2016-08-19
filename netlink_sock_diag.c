@@ -53,6 +53,8 @@
 #include "xlat/netlink_attr_udiag.h"
 #include "xlat/netlink_attr_pdiag.h"
 
+#define IFNAMSIZ 16
+
 static void
 decode_inet_diag_sockid(struct tcb *tcp, int family,
 			struct inet_diag_sockid *sockid)
@@ -96,6 +98,15 @@ decode_inet_diag_sockid(struct tcb *tcp, int family,
 	tprintf(", idiag_if=%u, idiag_cookie={%u, %u}}", sockid->idiag_if,
 		sockid->idiag_cookie[0], sockid->idiag_cookie[1]);
 }
+
+static const struct nla_policy inet_policy[] = {
+	[INET_DIAG_CONG] = {.type = NLA_STRING, .len = IFNAMSIZ-1},
+	[INET_DIAG_TOS] = {.type = NLA_U8},
+	[INET_DIAG_TCLASS] = {.type = NLA_U8},
+	[INET_DIAG_SHUTDOWN] = {.type = NLA_U8},
+	[INET_DIAG_PROTOCOL] = {.type = NLA_U8},
+	[INET_DIAG_SKV6ONLY] = {.type = NLA_U8}
+};
 
 static void
 decode_inet_diag_req(struct tcb *tcp, unsigned long addr,
@@ -167,7 +178,7 @@ decode_inet_diag_msg(struct tcb *tcp, unsigned long addr,
 
 	decode_nlattr(tcp, addr + sizeof(struct inet_diag_msg),
 		      len - sizeof(struct inet_diag_msg), netlink_attr_idiag,
-		      NULL, "INET_DIAG_???");
+		      inet_policy, "INET_DIAG_???");
 }
 
 static void
@@ -226,6 +237,11 @@ decode_netlink_diag_msg(struct tcb *tcp, unsigned long addr,
 		      NULL, "NETLINK_DIAG_???");
 }
 
+static const struct nla_policy packet_policy[] = {
+	[PACKET_DIAG_FANOUT] = {.type = NLA_U32},
+	[PACKET_DIAG_UID] = {.type = NLA_U32}
+};
+
 static void
 decode_packet_diag_req(struct tcb *tcp, unsigned long addr,
 		       unsigned long len)
@@ -267,8 +283,13 @@ decode_packet_diag_msg(struct tcb *tcp, unsigned long addr,
 
 	decode_nlattr(tcp, addr + sizeof(struct packet_diag_msg),
 		      len - sizeof(struct packet_diag_msg), netlink_attr_pdiag,
-		      NULL, "PACKET_DIAG_???");
+		      packet_policy, "PACKET_DIAG_???");
 }
+
+static const struct nla_policy unix_policy[] = {
+	[UNIX_DIAG_PEER] = {.type = NLA_U32},
+	[UNIX_DIAG_SHUTDOWN] = {.type = NLA_U8}
+};
 
 static void
 decode_unix_diag_req(struct tcb *tcp, unsigned long addr,
@@ -311,7 +332,7 @@ decode_unix_diag_msg(struct tcb *tcp, unsigned long addr,
 
 	decode_nlattr(tcp, addr + sizeof(struct unix_diag_msg),
 		      len - sizeof(struct unix_diag_msg), netlink_attr_udiag,
-		      NULL, "UNIX_DIAG_???");
+		      unix_policy, "UNIX_DIAG_???");
 }
 
 void
