@@ -45,6 +45,7 @@
 #include <linux/if_addrlabel.h>
 #include <linux/if.h>
 #include <linux/if_arp.h>
+#include <linux/pkt_cls.h>
 #include <linux/dcbnl.h>
 #include <linux/netconf.h>
 
@@ -58,6 +59,8 @@ send_link_query(const int fd)
 	struct {
 		struct nlmsghdr nlh;
 		struct ifinfomsg msg;
+		struct nlattr nla;
+		char ifname[5];
 	} req = {
 		.nlh = {
 			.nlmsg_len = sizeof(req),
@@ -68,7 +71,12 @@ send_link_query(const int fd)
 			.ifi_family = AF_NETLINK,
 			.ifi_type = ARPHRD_LOOPBACK,
 			.ifi_flags = IFF_UP,
-		}
+		},
+		.nla = {
+			.nla_len = sizeof(req.ifname) + sizeof(req.nla),
+			.nla_type = IFLA_IFNAME
+		},
+		.ifname = "eth0"
 	};
 
 	if (sendto(fd, &req, sizeof(req), MSG_DONTWAIT, NULL, 0) !=
@@ -78,9 +86,10 @@ send_link_query(const int fd)
 	printf("sendto(%d, {{len=%u, type=RTM_GETLINK"
 	       ", flags=NLM_F_REQUEST|NLM_F_DUMP, seq=0, pid=0}, {"
 	       "ifi_family=AF_NETLINK, ifi_type=ARPHRD_LOOPBACK"
-	       ", ifi_index=0, ifi_flags=IFF_UP, ifi_change=0}}"
+	       ", ifi_index=0, ifi_flags=IFF_UP, ifi_change=0}"
+	       ", {{nla_len=%u, nla_type=IFLA_IFNAME}, \"eth0\"}}"
 	       ", %u, MSG_DONTWAIT, NULL, 0) = %u\n", fd,
-	       (unsigned) sizeof(req), (unsigned) sizeof(req),
+	       (unsigned) sizeof(req), req.nla.nla_len, (unsigned) sizeof(req),
 	       (unsigned) sizeof(req));
 }
 
@@ -91,6 +100,8 @@ send_addr_query(const int fd)
 	struct {
 		struct nlmsghdr nlh;
 		struct ifaddrmsg msg;
+		struct nlattr nla;
+		char label[5];
 	} req = {
 		.nlh = {
 			.nlmsg_len = sizeof(req),
@@ -101,7 +112,12 @@ send_addr_query(const int fd)
 			.ifa_family = AF_NETLINK,
 			.ifa_prefixlen = prefixlen,
 			.ifa_flags = IFA_F_SECONDARY
-		}
+		},
+		.nla = {
+			.nla_len = sizeof(req.label) + sizeof(req.nla),
+			.nla_type = IFA_LABEL
+		},
+		.label = "eth0"
 	};
 
 	if (sendto(fd, &req, sizeof(req), MSG_DONTWAIT, NULL, 0) !=
@@ -111,10 +127,11 @@ send_addr_query(const int fd)
 	printf("sendto(%d, {{len=%u, type=RTM_GETADDR"
 	       ", flags=NLM_F_REQUEST|NLM_F_DUMP, seq=0, pid=0}, {"
 	       "ifa_family=AF_NETLINK, ifa_prefixlen=%d"
-	       ", ifa_flags=IFA_F_SECONDARY, ifa_scope=0, ifa_index=0}}"
+	       ", ifa_flags=IFA_F_SECONDARY, ifa_scope=0, ifa_index=0}"
+	       ", {{nla_len=%u, nla_type=IFA_LABEL}, \"eth0\"}}"
 	       ", %u, MSG_DONTWAIT, NULL, 0) = %u\n", fd,
-	       (unsigned) sizeof(req), prefixlen, (unsigned) sizeof(req),
-	       (unsigned) sizeof(req));
+	       (unsigned) sizeof(req), prefixlen, req.nla.nla_len,
+	       (unsigned) sizeof(req), (unsigned) sizeof(req));
 }
 
 static void
@@ -123,6 +140,8 @@ send_route_query(const int fd)
 	struct {
 		struct nlmsghdr nlh;
 		struct rtmsg msg;
+		struct nlattr nla;
+		uint32_t magic;
 	} req = {
 		.nlh = {
 			.nlmsg_len = sizeof(req),
@@ -139,7 +158,12 @@ send_route_query(const int fd)
 			.rtm_scope = RT_SCOPE_UNIVERSE,
 			.rtm_type = RTN_LOCAL,
 			.rtm_flags = RTM_F_NOTIFY
-		}
+		},
+		.nla = {
+			.nla_len = sizeof(req.magic) + sizeof(req.nla),
+			.nla_type = RTA_PRIORITY
+		},
+		.magic = 42
 	};
 
 	if (sendto(fd, &req, sizeof(req), MSG_DONTWAIT, NULL, 0) !=
@@ -151,9 +175,10 @@ send_route_query(const int fd)
 	       "rtm_family=AF_NETLINK, rtm_dst_len=0, rtm_src_len=0"
 	       ", rtm_tos=0, rtm_table=RT_TABLE_DEFAULT, rtm_protocol=RTPROT_KERNEL"
 	       ", rtm_scope=RT_SCOPE_UNIVERSE, rtm_type=RTN_LOCAL"
-	       ", rtm_flags=RTM_F_NOTIFY}}, %u, MSG_DONTWAIT, NULL, 0) = %u\n", fd,
-	       (unsigned) sizeof(req), (unsigned) sizeof(req),
-	       (unsigned) sizeof(req));
+	       ", rtm_flags=RTM_F_NOTIFY}, {{nla_len=%u, nla_type=RTA_PRIORITY}, %u}}"
+	       ", %u, MSG_DONTWAIT, NULL, 0) = %u\n", fd,
+	       (unsigned) sizeof(req), req.nla.nla_len, req.magic,
+	       (unsigned) sizeof(req), (unsigned) sizeof(req));
 }
 
 static void
@@ -162,6 +187,8 @@ send_neigh_query(const int fd)
 	struct {
 		struct nlmsghdr nlh;
 		struct ndmsg msg;
+		struct nlattr nla;
+		uint32_t index;
 	} req = {
 		.nlh = {
 			.nlmsg_len = sizeof(req),
@@ -173,7 +200,12 @@ send_neigh_query(const int fd)
 			.ndm_ifindex = 0,
 			.ndm_state = NUD_PERMANENT,
 			.ndm_flags = NTF_PROXY,
-		}
+		},
+		.nla = {
+			.nla_len = sizeof(req.index) + sizeof(req.nla),
+			.nla_type = NDA_IFINDEX
+		},
+		.index = 42
 	};
 
 	if (sendto(fd, &req, sizeof(req), MSG_DONTWAIT, NULL, 0) !=
@@ -183,9 +215,10 @@ send_neigh_query(const int fd)
 	printf("sendto(%d, {{len=%u, type=RTM_GETNEIGH"
 	       ", flags=NLM_F_REQUEST|NLM_F_DUMP, seq=0, pid=0}"
 	       ", {ndm_family=AF_NETLINK, ndm_ifindex=0, ndm_state=NUD_PERMANENT"
-	       ", ndm_flags=NTF_PROXY, ndm_type=0}}, %u, MSG_DONTWAIT, NULL, 0)"
-	       " = %u\n", fd, (unsigned) sizeof(req), (unsigned) sizeof(req),
-	       (unsigned) sizeof(req));
+	       ", ndm_flags=NTF_PROXY, ndm_type=0}, {{nla_len=%u"
+	       ", nla_type=NDA_IFINDEX}, %u}}, %u, MSG_DONTWAIT, NULL, 0)"
+	       " = %u\n", fd, (unsigned) sizeof(req), req.nla.nla_len, req.index,
+	       (unsigned) sizeof(req), (unsigned) sizeof(req));
 }
 
 
@@ -195,6 +228,8 @@ send_neightbl_query(const int fd)
 	struct {
 		struct nlmsghdr nlh;
 		struct ndtmsg msg;
+		struct nlattr nla;
+		char name[5];
 	} req = {
 		.nlh = {
 			.nlmsg_len = sizeof(req),
@@ -203,7 +238,12 @@ send_neightbl_query(const int fd)
 		},
 		.msg = {
 			.ndtm_family = AF_NETLINK,
-		}
+		},
+		.nla = {
+			.nla_len = sizeof(req.name) + sizeof(req.nla),
+			.nla_type = NDTA_NAME
+		},
+		.name = "abcd"
 	};
 
 	if (sendto(fd, &req, sizeof(req), MSG_DONTWAIT, NULL, 0) !=
@@ -212,8 +252,9 @@ send_neightbl_query(const int fd)
 
 	printf("sendto(%d, {{len=%u, type=RTM_GETNEIGHTBL"
 	       ", flags=NLM_F_REQUEST|NLM_F_DUMP, seq=0, pid=0}"
-	       ", {ndt_family=AF_NETLINK}}, %u, MSG_DONTWAIT, NULL, 0)"
-	       " = %u\n", fd, (unsigned) sizeof(req), (unsigned) sizeof(req),
+	       ", {ndt_family=AF_NETLINK}, {{nla_len=%u, nla_type=NDTA_NAME}"
+	       ", \"abcd\"}}, %u, MSG_DONTWAIT, NULL, 0) = %u\n", fd,
+	       (unsigned) sizeof(req), req.nla.nla_len, (unsigned) sizeof(req),
 	       (unsigned) sizeof(req));
 }
 
@@ -223,6 +264,8 @@ send_tc_query(const int fd)
 	struct {
 		struct nlmsghdr nlh;
 		struct tcmsg msg;
+		struct nlattr nla;
+		char kind[5];
 	} req = {
 		.nlh = {
 			.nlmsg_len = sizeof(req),
@@ -231,7 +274,12 @@ send_tc_query(const int fd)
 		},
 		.msg = {
 			.tcm_family = AF_NETLINK,
-		}
+		},
+		.nla = {
+			.nla_len = sizeof(req.kind) + sizeof(req.nla),
+			.nla_type = TCA_KIND
+		},
+		.kind = "abcd"
 	};
 
 	if (sendto(fd, &req, sizeof(req), MSG_DONTWAIT, NULL, 0) !=
@@ -241,11 +289,11 @@ send_tc_query(const int fd)
 	printf("sendto(%d, {{len=%u, type=RTM_GETQDISC"
 	       ", flags=NLM_F_REQUEST|NLM_F_DUMP, seq=0, pid=0}"
 	       ", {tcm_family=AF_NETLINK, tcm_ifindex=0, tcm_handle=0"
-	       ", tcm_parent=0, tcm_info=0}}, %u, MSG_DONTWAIT"
-	       ", NULL, 0) = %u\n", fd, (unsigned) sizeof(req),
+	       ", tcm_parent=0, tcm_info=0}, {{nla_len=%u, nla_type=TCA_KIND}"
+	       ", \"abcd\"}}, %u, MSG_DONTWAIT, NULL, 0) = %u\n", fd,
+	       (unsigned) sizeof(req), req.nla.nla_len,
 	       (unsigned) sizeof(req), (unsigned) sizeof(req));
 }
-
 
 static void
 send_action_query(const int fd)
@@ -253,6 +301,8 @@ send_action_query(const int fd)
 	struct {
 		struct nlmsghdr nlh;
 		struct tcamsg msg;
+		struct nlattr nla;
+		char kind[5];
 	} req = {
 		.nlh = {
 			.nlmsg_len = sizeof(req),
@@ -261,7 +311,12 @@ send_action_query(const int fd)
 		},
 		.msg = {
 			.tca_family = AF_NETLINK,
-		}
+		},
+		.nla = {
+			.nla_len = sizeof(req.kind) + sizeof(req.nla),
+			.nla_type = TCA_ACT_KIND
+		},
+		.kind = "abcd"
 	};
 
 	if (sendto(fd, &req, sizeof(req), MSG_DONTWAIT, NULL, 0) !=
@@ -270,8 +325,9 @@ send_action_query(const int fd)
 
 	printf("sendto(%d, {{len=%u, type=RTM_GETACTION"
 	       ", flags=NLM_F_REQUEST|NLM_F_DUMP, seq=0, pid=0}"
-	       ", {tca_family=AF_NETLINK}}, %u, MSG_DONTWAIT"
-	       ", NULL, 0) = %u\n", fd, (unsigned) sizeof(req),
+	       ", {tca_family=AF_NETLINK}, {{nla_len=%u, nla_type=TCA_ACT_KIND}"
+	       ", \"abcd\"}}, %u, MSG_DONTWAIT, NULL, 0) = %u\n", fd,
+	       (unsigned) sizeof(req), req.nla.nla_len,
 	       (unsigned) sizeof(req), (unsigned) sizeof(req));
 }
 
@@ -281,6 +337,8 @@ send_addrlabel_query(const int fd)
 	struct {
 		struct nlmsghdr nlh;
 		struct ifaddrlblmsg msg;
+		struct nlattr nla;
+		uint32_t label;
 	} req = {
 		.nlh = {
 			.nlmsg_len = sizeof(req),
@@ -293,7 +351,12 @@ send_addrlabel_query(const int fd)
 			.ifal_flags = 0,
 			.ifal_index = 0,
 			.ifal_seq = 0
-		}
+		},
+		.nla = {
+			.nla_len = sizeof(req.label) + sizeof(req.nla),
+			.nla_type = IFAL_LABEL
+		},
+		.label = 42
 	};
 
 	if (sendto(fd, &req, sizeof(req), MSG_DONTWAIT, NULL, 0) !=
@@ -303,8 +366,9 @@ send_addrlabel_query(const int fd)
 	printf("sendto(%d, {{len=%u, type=RTM_GETADDRLABEL"
 	       ", flags=NLM_F_REQUEST|NLM_F_DUMP, seq=0, pid=0}"
 	       ", {ifal_family=AF_NETLINK, ifal_prefixlen=0, ifal_flags=0"
-	       ", ifal_index=0, ifal_seq=0}}, %u, MSG_DONTWAIT"
-	       ", NULL, 0) = %u\n", fd, (unsigned) sizeof(req),
+	       ", ifal_index=0, ifal_seq=0}, {{nla_len=%u, nla_type=IFAL_LABEL}"
+	       ", %u}}, %u, MSG_DONTWAIT, NULL, 0) = %u\n", fd,
+	       (unsigned) sizeof(req), req.nla.nla_len, req.label,
 	       (unsigned) sizeof(req), (unsigned) sizeof(req));
 }
 
@@ -314,6 +378,8 @@ send_dcb_query(const int fd)
 	struct {
 		struct nlmsghdr nlh;
 		struct dcbmsg msg;
+		struct nlattr nla;
+		char name[5];
 	} req = {
 		.nlh = {
 			.nlmsg_len = sizeof(req),
@@ -323,7 +389,12 @@ send_dcb_query(const int fd)
 		.msg = {
 			.dcb_family = AF_NETLINK,
 			.cmd = DCB_CMD_UNDEFINED
-		}
+		},
+		.nla = {
+			.nla_len = sizeof(req.name) + sizeof(req.nla),
+			.nla_type = DCB_ATTR_IFNAME
+		},
+		.name = "eth0"
 	};
 
 	if (sendto(fd, &req, sizeof(req), MSG_DONTWAIT, NULL, 0) !=
@@ -332,9 +403,10 @@ send_dcb_query(const int fd)
 
 	printf("sendto(%d, {{len=%u, type=RTM_GETDCB"
 	       ", flags=NLM_F_REQUEST|NLM_F_DUMP, seq=0, pid=0}"
-	       ", {dcb_family=AF_NETLINK, cmd=DCB_CMD_UNDEFINED}}"
+	       ", {dcb_family=AF_NETLINK, cmd=DCB_CMD_UNDEFINED}"
+	       ", {{nla_len=%u, nla_type=DCB_ATTR_IFNAME}, \"eth0\"}}"
 	       ", %u, MSG_DONTWAIT, NULL, 0) = %u\n", fd, (unsigned) sizeof(req),
-	       (unsigned) sizeof(req), (unsigned) sizeof(req));
+	       req.nla.nla_len, (unsigned) sizeof(req), (unsigned) sizeof(req));
 }
 
 static void
@@ -343,6 +415,9 @@ send_ncm_query(const int fd)
 	struct {
 		struct nlmsghdr nlh;
 		struct netconfmsg msg;
+		char pad[3];
+		struct nlattr nla;
+		int32_t index;
 	} req = {
 		.nlh = {
 			.nlmsg_len = sizeof(req),
@@ -351,7 +426,12 @@ send_ncm_query(const int fd)
 		},
 		.msg = {
 			.ncm_family = AF_NETLINK
-		}
+		},
+		.nla = {
+			.nla_len = sizeof(req.index) + sizeof(req.nla),
+			.nla_type = NETCONFA_IFINDEX
+		},
+		.index = 42
 	};
 
 	if (sendto(fd, &req, sizeof(req), MSG_DONTWAIT, NULL, 0) !=
@@ -360,9 +440,10 @@ send_ncm_query(const int fd)
 
 	printf("sendto(%d, {{len=%u, type=RTM_GETNETCONF"
 	       ", flags=NLM_F_REQUEST|NLM_F_DUMP, seq=0, pid=0}"
-	       ", {ncm_family=AF_NETLINK}}, %u, MSG_DONTWAIT, NULL, 0) = %u\n",
-	       fd, (unsigned) sizeof(req), (unsigned) sizeof(req),
-	       (unsigned) sizeof(req));
+	       ", {ncm_family=AF_NETLINK}, {{nla_len=%u, nla_type=NETCONFA_IFINDEX}"
+	       ", %u}}, %u, MSG_DONTWAIT, NULL, 0) = %u\n",
+	       fd, (unsigned) sizeof(req), req.nla.nla_len, req.index,
+	       (unsigned) sizeof(req), (unsigned) sizeof(req));
 }
 
 static void
