@@ -656,8 +656,10 @@ struct nla_policy {
 	unsigned short type;
 	unsigned short len;
 };
-extern unsigned long decode_nlattr(struct tcb *, unsigned long ,unsigned long,
+extern unsigned long decode_nlattr(struct tcb *, unsigned long ,unsigned long, unsigned,
 				   const struct xlat*, const struct nla_policy[],
+				   bool (*fallback_parser)(struct tcb *, unsigned long,
+							   unsigned long, int, unsigned),
 				   const char *);
 extern void tprint_open_modes(unsigned int);
 extern const char *sprint_open_modes(unsigned int);

@@ -66,7 +66,9 @@ fetch_nlattr(struct tcb *tcp, struct nlattr *nlattr,
 
 static void
 decode_nlattr_data(struct tcb *tcp, unsigned long addr, unsigned long len,
-		   unsigned nla_type, const struct nla_policy policy[])
+		   unsigned family, unsigned nla_type, const struct nla_policy policy[],
+		   bool (*fallback_parser)(struct tcb *, unsigned long, unsigned long,
+					   int, unsigned))
 {
 	if (!policy) {
 		printstr(tcp, addr, len);
@@ -145,13 +147,18 @@ decode_nlattr_data(struct tcb *tcp, unsigned long addr, unsigned long len,
 		break;
 	}
 	default:
+		if (fallback_parser)
+			if ((*fallback_parser) (tcp, addr, len, nla_type, family))
+				return;
 		printstr(tcp, addr, len);
 	}
 }
 
 unsigned long
-decode_nlattr(struct tcb *tcp, unsigned long addr, unsigned long len,
+decode_nlattr(struct tcb *tcp, unsigned long addr, unsigned long len, unsigned family,
 	      const struct xlat *table, const struct nla_policy policy[],
+	      bool (*fallback_parser)(struct tcb *, unsigned long, unsigned long,
+				      int, unsigned),
 	      const char *dftl)
 {
 	struct nlattr nlattr;
@@ -182,8 +189,10 @@ decode_nlattr(struct tcb *tcp, unsigned long addr, unsigned long len,
 
 		decode_nlattr_data(tcp, addr + sizeof(struct nlattr),
 				   nlattr.nla_len - sizeof(struct nlattr),
+				   family,
 				   nlattr.nla_type,
-				   policy);
+				   policy,
+				   fallback_parser);
 
 		tprints("}");
 

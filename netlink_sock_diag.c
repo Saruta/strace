@@ -177,8 +177,8 @@ decode_inet_diag_msg(struct tcb *tcp, unsigned long addr,
 		idiag_msg.idiag_inode);
 
 	decode_nlattr(tcp, addr + sizeof(struct inet_diag_msg),
-		      len - sizeof(struct inet_diag_msg), netlink_attr_idiag,
-		      inet_policy, "INET_DIAG_???");
+		      len - sizeof(struct inet_diag_msg), idiag_msg.idiag_family,
+		      netlink_attr_idiag, inet_policy, NULL, "INET_DIAG_???");
 }
 
 static void
@@ -233,8 +233,8 @@ decode_netlink_diag_msg(struct tcb *tcp, unsigned long addr,
 		ndiag_msg.ndiag_cookie[0], ndiag_msg.ndiag_cookie[1]);
 
 	decode_nlattr(tcp, addr + sizeof(struct netlink_diag_msg),
-		      len - sizeof(struct netlink_diag_msg), netlink_attr_ndiag,
-		      NULL, "NETLINK_DIAG_???");
+		      len - sizeof(struct netlink_diag_msg), ndiag_msg.ndiag_family,
+		      netlink_attr_ndiag, NULL, NULL, "NETLINK_DIAG_???");
 }
 
 static const struct nla_policy packet_policy[] = {
@@ -282,8 +282,8 @@ decode_packet_diag_msg(struct tcb *tcp, unsigned long addr,
 		pdiag_msg.pdiag_cookie[0], pdiag_msg.pdiag_cookie[1]);
 
 	decode_nlattr(tcp, addr + sizeof(struct packet_diag_msg),
-		      len - sizeof(struct packet_diag_msg), netlink_attr_pdiag,
-		      packet_policy, "PACKET_DIAG_???");
+		      len - sizeof(struct packet_diag_msg), pdiag_msg.pdiag_family,
+		      netlink_attr_pdiag, packet_policy, NULL, "PACKET_DIAG_???");
 }
 
 static const struct nla_policy unix_policy[] = {
@@ -331,8 +331,8 @@ decode_unix_diag_msg(struct tcb *tcp, unsigned long addr,
 		udiag_msg.udiag_cookie[0], udiag_msg.udiag_cookie[1]);
 
 	decode_nlattr(tcp, addr + sizeof(struct unix_diag_msg),
-		      len - sizeof(struct unix_diag_msg), netlink_attr_udiag,
-		      unix_policy, "UNIX_DIAG_???");
+		      len - sizeof(struct unix_diag_msg), udiag_msg.udiag_family,
+		      netlink_attr_udiag, unix_policy, NULL, "UNIX_DIAG_???");
 }
 
 void

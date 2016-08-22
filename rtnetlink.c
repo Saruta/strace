@@ -37,6 +37,7 @@
 #include <linux/neighbour.h>
 #include <linux/dcbnl.h>
 #include <linux/netconf.h>
+#include <arpa/inet.h>
 #include "xlat/arp_hardware_types.h"
 #include "xlat/iffflags.h"
 #include "xlat/ifaddrflags.h"
@@ -60,6 +61,25 @@
 #include "xlat/rtnetlink_nc_attr.h"
 #include "xlat/rtnetlink_mdb_attr.h"
 #include "xlat/rtnetlink_nsid_attr.h"
+
+static bool
+decode_address(int af, int len, const void *addr)
+{
+	int buflen = 80;
+	char buf[buflen];
+
+	switch (af) {
+	case AF_INET:
+	case AF_INET6:
+		inet_ntop(af, addr, buf, buflen);
+		break;
+	default:
+		return false;
+	}
+
+	tprintf("\"%s\"", buf);
+	return true;
+}
 
 #define MAX_PHYS_ITEM_ID_LEN 32
 
@@ -117,24 +137,44 @@ decode_rtnetlink_link(struct tcb *tcp, unsigned long *addr, unsigned long *len)
 }
 
 static const struct nla_policy ifa_policy[] = {
-	[IFA_LOCAL] = {.type = NLA_U32},
-	[IFA_ADDRESS] = {.type = NLA_U32},
-	[IFA_BROADCAST] = {.type = NLA_U32},
+	[IFA_LOCAL] = {.type = NLA_UNSPEC}, /* NLA_ADDRESS */
+	[IFA_ADDRESS] = {.type = NLA_UNSPEC}, /* NLA_ADDRESS */
+	[IFA_BROADCAST] = {.type = NLA_UNSPEC}, /* NLA_ADDRESS */
 	[IFA_LABEL] = {.type = NLA_STRING},
 	[IFA_FLAGS] = {.type = NLA_U32}
 };
 
-static void
+static bool
+decode_addr_attrs(struct tcb *tcp, unsigned long addr, unsigned long len,
+		  int nla_type, unsigned family)
+{
+	switch (nla_type)
+	{
+	case IFA_LOCAL:
+	case IFA_ADDRESS:
+	case IFA_BROADCAST:{
+		uint8_t buf[len];
+		if (umoven(tcp, addr, len, buf))
+			return false;
+		return decode_address(family, len, buf);
+		break;
+	}
+	default:
+		return false;
+	}
+}
+
+static unsigned
 decode_rtnetlink_addr(struct tcb *tcp, unsigned long *addr, unsigned long *len)
 {
 	struct ifaddrmsg ifaddr;
 
 	if (*len < sizeof(ifaddr)) {
 		printstr(tcp, *addr, *len);
-		return;
+		return AF_UNSPEC;
 	}
 	if (umove_or_printaddr(tcp, *addr, &ifaddr) == -1)
-		return;
+		return AF_UNSPEC;
 
 	*len -= sizeof(ifaddr);
 	*addr += sizeof(ifaddr);
@@ -148,6 +188,8 @@ decode_rtnetlink_addr(struct tcb *tcp, unsigned long *addr, unsigned long *len)
 
 	tprintf(", ifa_scope=%u, ifa_index=%d}", ifaddr.ifa_scope,
 		ifaddr.ifa_index);
+
+	return ifaddr.ifa_family;
 }
 
 static const struct nla_policy rtm_policy[] = {
@@ -448,6 +490,7 @@ void
 decode_rtnetlink(struct tcb *tcp, unsigned long addr, unsigned long len,
 		 unsigned int type)
 {
+	unsigned family;
 	switch (type)
 	{
 	case RTM_NEWLINK:
@@ -455,17 +498,17 @@ decode_rtnetlink(struct tcb *tcp, unsigned long addr, unsigned long len,
 	case RTM_GETLINK:
 	case RTM_SETLINK:
 		decode_rtnetlink_link(tcp, &addr, &len);
-		len = decode_nlattr(tcp, addr, len, rtnetlink_link_attr,
-				    ifla_policy, "IFLA_???");
+		len = decode_nlattr(tcp, addr, len, AF_UNSPEC, rtnetlink_link_attr,
+				    ifla_policy, NULL, "IFLA_???");
 		break;
 	case RTM_NEWADDR:
 	case RTM_DELADDR:
 	case RTM_GETADDR:
 	case RTM_GETMULTICAST:
 	case RTM_GETANYCAST:
-		decode_rtnetlink_addr(tcp, &addr, &len);
-		len = decode_nlattr(tcp, addr, len, rtnetlink_addr_attr,
-				    ifa_policy, "IFA_???");
+		family = decode_rtnetlink_addr(tcp, &addr, &len);
+		len = decode_nlattr(tcp, addr, len, family, rtnetlink_addr_attr,
+				    ifa_policy, decode_addr_attrs, "IFA_???");
 		break;
 	case RTM_NEWROUTE:
 	case RTM_DELROUTE:
@@ -474,22 +517,22 @@ decode_rtnetlink(struct tcb *tcp, unsigned long addr, unsigned long len,
 	case RTM_DELRULE:
 	case RTM_GETRULE:
 		decode_rtnetlink_rtmsg(tcp, &addr, &len);
-		len = decode_nlattr(tcp, addr, len, rtnetlink_route_attr,
-				    rtm_policy, "RTA_???");
+		len = decode_nlattr(tcp, addr, len, AF_UNSPEC, rtnetlink_route_attr,
+				    rtm_policy, NULL, "RTA_???");
 		break;
 	case RTM_NEWNEIGH:
 	case RTM_DELNEIGH:
 	case RTM_GETNEIGH:
 		decode_rtnetlink_neigh(tcp, &addr, &len);
-		len = decode_nlattr(tcp, addr, len, rtnetlink_neigh_attr,
-				    neigh_policy, "NDA_???");
+		len = decode_nlattr(tcp, addr, len, AF_UNSPEC, rtnetlink_neigh_attr,
+				    neigh_policy, NULL, "NDA_???");
 		break;
 	case RTM_NEWNEIGHTBL:
 	case RTM_GETNEIGHTBL:
 	case RTM_SETNEIGHTBL:
 		decode_rtnetlink_neightbl(tcp, &addr, &len);
-		len = decode_nlattr(tcp, addr, len, rtnetlink_neightbl_attr,
-				    nl_neightbl_policy, "NDTA_???");
+		len = decode_nlattr(tcp, addr, len, AF_UNSPEC, rtnetlink_neightbl_attr,
+				    nl_neightbl_policy, NULL, "NDTA_???");
 		break;
 	case RTM_NEWQDISC:
 	case RTM_DELQDISC:
@@ -501,48 +544,48 @@ decode_rtnetlink(struct tcb *tcp, unsigned long addr, unsigned long len,
 	case RTM_DELTFILTER:
 	case RTM_GETTFILTER:
 		decode_rtnetlink_tc(tcp, &addr, &len);
-		len = decode_nlattr(tcp, addr, len, rtnetlink_tc_attr,
-				    tc_policy, "TCA_???");
+		len = decode_nlattr(tcp, addr, len, AF_UNSPEC, rtnetlink_tc_attr,
+				    tc_policy, NULL, "TCA_???");
 		break;
 	case RTM_NEWACTION:
 	case RTM_DELACTION:
 	case RTM_GETACTION:
 		decode_rtnetlink_action(tcp, &addr, &len);
-		len = decode_nlattr(tcp, addr, len, rtnetlink_action_attr,
-				    nl_action_policy, "TCA_ACT_???");
+		len = decode_nlattr(tcp, addr, len, AF_UNSPEC, rtnetlink_action_attr,
+				    nl_action_policy, NULL, "TCA_ACT_???");
 		break;
 	case RTM_NEWADDRLABEL:
 	case RTM_DELADDRLABEL:
 	case RTM_GETADDRLABEL:
 		decode_rtnetlink_addrlbl(tcp, &addr, &len);
-		len = decode_nlattr(tcp, addr, len, rtnetlink_addrlabel_attr,
-				    addrlabel_policy, "IFAL_???");
+		len = decode_nlattr(tcp, addr, len, AF_UNSPEC, rtnetlink_addrlabel_attr,
+				    addrlabel_policy, NULL, "IFAL_???");
 		break;
 	case RTM_GETDCB:
 	case RTM_SETDCB:
 		decode_rtnetlink_dcb(tcp, &addr, &len);
-		len = decode_nlattr(tcp, addr, len, rtnetlink_dcb_attr,
-				    dcbnl_policy, "DCB_ATTR_???");
+		len = decode_nlattr(tcp, addr, len, AF_UNSPEC, rtnetlink_dcb_attr,
+				    dcbnl_policy, NULL, "DCB_ATTR_???");
 		break;
 	case RTM_GETNETCONF:
 	case RTM_NEWNETCONF:
 		decode_rtnetlink_ncm(tcp, &addr, &len);
-		len = decode_nlattr(tcp, addr, len, rtnetlink_nc_attr,
-				    ncm_policy, "NETCONFA_???");
+		len = decode_nlattr(tcp, addr, len, AF_UNSPEC, rtnetlink_nc_attr,
+				    ncm_policy, NULL, "NETCONFA_???");
 		break;
 	case RTM_NEWMDB:
 	case RTM_DELMDB:
 	case RTM_GETMDB:
 		decode_rtnetlink_mdb(tcp, &addr, &len);
-		len = decode_nlattr(tcp, addr, len, rtnetlink_mdb_attr, NULL,
-				    "MDBA_???");
+		len = decode_nlattr(tcp, addr, len, AF_UNSPEC, rtnetlink_mdb_attr, NULL,
+				    NULL, "MDBA_???");
 		break;
 	case RTM_NEWNSID:
 	case RTM_DELNSID:
 	case RTM_GETNSID:
 		decode_rtnetlink_rtgenmsg(tcp, &addr, &len);
-		len = decode_nlattr(tcp, addr, len, rtnetlink_nsid_attr,
-				    rtnl_net_policy, "NETNSA_???");
+		len = decode_nlattr(tcp, addr, len, AF_UNSPEC, rtnetlink_nsid_attr,
+				    rtnl_net_policy, NULL, "NETNSA_???");
 		break;
 	}
 
