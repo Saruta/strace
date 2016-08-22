@@ -48,6 +48,7 @@
 #include <linux/pkt_cls.h>
 #include <linux/dcbnl.h>
 #include <linux/netconf.h>
+#include <arpa/inet.h>
 
 #if !defined NETLINK_SOCK_DIAG && defined NETLINK_INET_DIAG
 # define NETLINK_SOCK_DIAG NETLINK_INET_DIAG
@@ -97,11 +98,15 @@ static void
 send_addr_query(const int fd)
 {
 	int prefixlen = 24;
+	const char *addr_s = "8.8.8.8";
 	struct {
 		struct nlmsghdr nlh;
 		struct ifaddrmsg msg;
 		struct nlattr nla;
 		char label[5];
+		char pad[3];
+		struct nlattr nla2;
+		char address[4];
 	} req = {
 		.nlh = {
 			.nlmsg_len = sizeof(req),
@@ -109,7 +114,7 @@ send_addr_query(const int fd)
 			.nlmsg_flags = NLM_F_DUMP | NLM_F_REQUEST
 		},
 		.msg = {
-			.ifa_family = AF_NETLINK,
+			.ifa_family = AF_INET,
 			.ifa_prefixlen = prefixlen,
 			.ifa_flags = IFA_F_SECONDARY
 		},
@@ -117,8 +122,15 @@ send_addr_query(const int fd)
 			.nla_len = sizeof(req.label) + sizeof(req.nla),
 			.nla_type = IFA_LABEL
 		},
-		.label = "eth0"
+		.label = "eth0",
+		.nla2 = {
+			.nla_len = sizeof(req.address) + sizeof(req.nla2),
+			.nla_type = IFA_ADDRESS
+		},
 	};
+
+	if (inet_pton(AF_INET, addr_s, req.address) != 1)
+		perror_msg_and_skip("inet_pton");
 
 	if (sendto(fd, &req, sizeof(req), MSG_DONTWAIT, NULL, 0) !=
 	    (unsigned) sizeof(req))
@@ -126,11 +138,67 @@ send_addr_query(const int fd)
 
 	printf("sendto(%d, {{len=%u, type=RTM_GETADDR"
 	       ", flags=NLM_F_REQUEST|NLM_F_DUMP, seq=0, pid=0}, {"
-	       "ifa_family=AF_NETLINK, ifa_prefixlen=%d"
+	       "ifa_family=AF_INET, ifa_prefixlen=%d"
 	       ", ifa_flags=IFA_F_SECONDARY, ifa_scope=0, ifa_index=0}"
-	       ", {{nla_len=%u, nla_type=IFA_LABEL}, \"eth0\"}}"
+	       ", {{nla_len=%u, nla_type=IFA_LABEL}, \"eth0\"}"
+	       ", {{nla_len=%u, nla_type=IFA_ADDRESS}, \"%s\"}}"
 	       ", %u, MSG_DONTWAIT, NULL, 0) = %u\n", fd,
 	       (unsigned) sizeof(req), prefixlen, req.nla.nla_len,
+	       req.nla2.nla_len, addr_s,
+	       (unsigned) sizeof(req), (unsigned) sizeof(req));
+}
+
+static void
+send_addr6_query(const int fd)
+{
+	int prefixlen = 24;
+	const char *addr6_s = "dead:beef:dead:beef:dead:beef:dead:beef";
+	struct {
+		struct nlmsghdr nlh;
+		struct ifaddrmsg msg;
+		struct nlattr nla;
+		char label[5];
+		char pad[3];
+		struct nlattr nla2;
+		char address6[16];
+	} req = {
+		.nlh = {
+			.nlmsg_len = sizeof(req),
+			.nlmsg_type = RTM_GETADDR,
+			.nlmsg_flags = NLM_F_DUMP | NLM_F_REQUEST
+		},
+		.msg = {
+			.ifa_family = AF_INET6,
+			.ifa_prefixlen = prefixlen,
+			.ifa_flags = IFA_F_SECONDARY
+		},
+		.nla = {
+			.nla_len = sizeof(req.label) + sizeof(req.nla),
+			.nla_type = IFA_LABEL
+		},
+		.label = "eth0",
+		.nla2 = {
+			.nla_len = sizeof(req.address6) + sizeof(req.nla2),
+			.nla_type = IFA_BROADCAST
+		}
+	};
+
+	if (inet_pton(AF_INET6, addr6_s, req.address6) != 1)
+		perror_msg_and_skip("inet_pton");
+
+	if (sendto(fd, &req, sizeof(req), MSG_DONTWAIT, NULL, 0) !=
+	    (unsigned) sizeof(req))
+		perror_msg_and_skip("sendto");
+
+	printf("sendto(%d, {{len=%u, type=RTM_GETADDR"
+	       ", flags=NLM_F_REQUEST|NLM_F_DUMP, seq=0, pid=0}, {"
+	       "ifa_family=AF_INET6, ifa_prefixlen=%d"
+	       ", ifa_flags=IFA_F_SECONDARY, ifa_scope=0, ifa_index=0}"
+	       ", {{nla_len=%u, nla_type=IFA_LABEL}, \"eth0\"}"
+	       ", {{nla_len=%u, nla_type=IFA_BROADCAST}, \"%s\"}}"
+	       ", %u, MSG_DONTWAIT, NULL, 0) = %u\n", fd,
+	       (unsigned) sizeof(req), prefixlen, req.nla.nla_len,
+	       req.nla2.nla_len, addr6_s,
 	       (unsigned) sizeof(req), (unsigned) sizeof(req));
 }
 
@@ -524,6 +592,8 @@ int main(void)
 	send_link_query(fd);
 
 	send_addr_query(fd);
+
+	send_addr6_query(fd);
 
 	send_route_query(fd);
 
